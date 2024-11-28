@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../supabaseClient';
 import ClienteForm from '../componentes/ClienteForm';
+import NavMenu from '../componentes/NavMenu';
 
 const Clientes = () => {
   const [clientes, setClientes] = useState([]);
@@ -34,7 +35,10 @@ const Clientes = () => {
   }, []);
 
   return (
-    <div className="clientes">
+   
+   
+    <div >
+      <NavMenu />
       <h1>Gestión de Clientes</h1>
       <ClienteForm fetchClientes={fetchClientes} />
       <ul>
