@@ -3,9 +3,9 @@ import { supabase } from "../../supabaseClient";
 
 const ServicioForm = ({ fetchServicios }) => {
   const [clientes, setClientes] = useState([]); // Lista completa de clientes
-  const [searchQuery, setSearchQuery] = useState(""); // Filtro para buscar clientes
+  const [searchQuery, setSearchQuery] = useState(""); // Filtro de búsqueda
   const [formData, setFormData] = useState({
-    fecha_in: "",
+    fecha_in: new Date().toISOString().split("T")[0], // Fecha actual
     fecha_es: "",
     detalle: "",
     costo: "",
@@ -13,12 +13,18 @@ const ServicioForm = ({ fetchServicios }) => {
     idCliente: "",
   });
 
+  // Estados para el paginador
+  const [currentPage, setCurrentPage] = useState(1);
+  const [clientesPerPage] = useState(5); // Clientes por página
+
   useEffect(() => {
     const fetchClientes = async () => {
       const { data, error } = await supabase
         .from("cliente")
-        .select("id, nombre, apellido")
-        .eq("baja", false);
+        .select("id, dni, nombre, apellido, created_at")
+        .eq("baja", false)
+        .order("created_at", { ascending: false }); // Orden por fecha de creación descendente
+
       if (error) {
         console.error("Error al cargar clientes:", error.message);
       } else {
@@ -38,13 +44,17 @@ const ServicioForm = ({ fetchServicios }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.idCliente) {
+      alert("Por favor, selecciona un cliente.");
+      return;
+    }
     const { error } = await supabase.from("servicio").insert([formData]);
     if (error) {
       console.error("Error al agregar servicio:", error.message);
     } else {
       fetchServicios();
       setFormData({
-        fecha_in: "",
+        fecha_in: new Date().toISOString().split("T")[0], // Restablecer fecha de inicio
         fecha_es: "",
         detalle: "",
         costo: "",
@@ -54,12 +64,25 @@ const ServicioForm = ({ fetchServicios }) => {
     }
   };
 
-  // Filtrar clientes por nombre o apellido
+  // Filtrar clientes por nombre, apellido o DNI
   const filteredClientes = clientes.filter(
     (cliente) =>
       cliente.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      cliente.apellido.toLowerCase().includes(searchQuery.toLowerCase())
+      cliente.apellido.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      cliente.dni.includes(searchQuery)
   );
+
+  // Lógica del paginador
+  const indexOfLastCliente = currentPage * clientesPerPage;
+  const indexOfFirstCliente = indexOfLastCliente - clientesPerPage;
+  const currentClientes = filteredClientes.slice(
+    indexOfFirstCliente,
+    indexOfLastCliente
+  );
+
+  const totalPages = Math.ceil(filteredClientes.length / clientesPerPage);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   return (
     <form
@@ -79,7 +102,7 @@ const ServicioForm = ({ fetchServicios }) => {
             value={formData.fecha_in}
             onChange={handleChange}
             className="input input-bordered"
-            required
+            readOnly
           />
         </div>
 
@@ -140,35 +163,81 @@ const ServicioForm = ({ fetchServicios }) => {
         </div>
       </div>
 
-      {/* Buscador y Select de Clientes */}
-      <div className="form-control mt-4">
+      {/* Buscador y Tabla de Clientes */}
+      <div className="form-control mt-6">
         <label className="label">
           <span className="label-text">Buscar Cliente</span>
         </label>
-        <input
-          type="text"
-          placeholder="Buscar por nombre o apellido"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="input input-bordered mb-4"
-        />
-        <select
-          name="idCliente"
-          value={formData.idCliente}
-          onChange={handleChange}
-          className="select select-bordered"
-          required
-        >
-          <option value="">Seleccionar Cliente</option>
-          {filteredClientes.map((cliente) => (
-            <option key={cliente.id} value={cliente.id}>
-              {cliente.nombre} {cliente.apellido}
-            </option>
-          ))}
-        </select>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Buscar por nombre, apellido o DNI"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input input-bordered w-full pl-10"
+          />
+          <span className="absolute top-2 left-3 text-gray-500">
+            <i className="fas fa-search"></i>
+          </span>
+        </div>
       </div>
 
-      <button type="submit" className="btn btn-primary w-full mt-4">
+      {/* Tabla para seleccionar cliente */}
+      <div className="overflow-x-auto mt-4">
+        <table className="table w-full">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Apellido</th>
+              <th>DNI</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentClientes.map((cliente) => (
+              <tr key={cliente.id}>
+                <td>{cliente.nombre}</td>
+                <td>{cliente.apellido}</td>
+                <td>{cliente.dni}</td>
+                <td>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData({ ...formData, idCliente: cliente.id })
+                    }
+                    className={`btn btn-sm ${
+                      formData.idCliente === cliente.id
+                        ? "btn-success"
+                        : "btn-primary"
+                    }`}
+                  >
+                    {formData.idCliente === cliente.id
+                      ? "Seleccionado"
+                      : "Seleccionar"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Paginador */}
+      <div className="mt-4 flex justify-center space-x-2">
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((number) => (
+          <button
+            key={number}
+            onClick={() => paginate(number)}
+            className={`btn btn-sm ${
+              currentPage === number ? "btn-active" : ""
+            }`}
+          >
+            {number}
+          </button>
+        ))}
+      </div>
+
+      <button type="submit" className="btn btn-primary w-full mt-6">
         Agregar Servicio
       </button>
     </form>

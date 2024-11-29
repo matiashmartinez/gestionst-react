@@ -53,13 +53,8 @@ const Clientes = () => {
       <NavMenu />
       <h1 className="text-3xl font-bold text-center my-6">Gestión de Clientes</h1>
 
-      {/* Formulario para agregar clientes */}
-      <div className="card bg-base-200 shadow-lg p-4 mb-6 max-w-4xl mx-auto">
-        <ClienteForm fetchClientes={fetchClientes} />
-      </div>
-
-      {/* Lista de clientes */}
-      <div className="card bg-base-200 shadow-lg p-4 max-w-4xl mx-auto">
+            {/* Lista de clientes */}
+            <div className="card bg-base-200 shadow-lg p-4 max-w-4xl mx-auto">
         <h2 className="text-xl font-semibold mb-4">Lista de Clientes</h2>
         <div className="overflow-x-auto">
           <table className="table w-full">
@@ -103,7 +98,15 @@ const Clientes = () => {
             {number}
           </button>
         ))}
+      </div> 
+
+
+      {/* Formulario para agregar clientes */}
+      <div className="card bg-base-200 shadow-lg p-4 mb-6 max-w-4xl mx-auto">
+        <ClienteForm fetchClientes={fetchClientes} />
       </div>
+
+
     </div>
   );
 };
