@@ -1,11 +1,11 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./src/**/*.{html,js,jsx}"], // Ruta a tus archivos JSX
+  content: [
+    "./index.html", // Archivo principal HTML
+    "./src/**/*.{js,jsx,ts,tsx}", // Todos los archivos en src
+  ],
   theme: {
     extend: {},
   },
-  plugins: [require("daisyui")], // Cargar DaisyUI
-  daisyui: {
-    themes: ["light", "dark", "cupcake"], // Temas predefinidos de DaisyUI
-  },
+  plugins: [require("daisyui")],
 };
