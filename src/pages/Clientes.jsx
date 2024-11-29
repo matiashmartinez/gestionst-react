@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabaseClient";
+import { useNavigate } from "react-router-dom";
 import ClienteForm from "../componentes/ClienteForm";
 import NavMenu from "../componentes/NavMenu";
 
@@ -7,6 +8,10 @@ const Clientes = () => {
   const [clientes, setClientes] = useState([]); // Lista de clientes
   const [currentPage, setCurrentPage] = useState(1); // Página actual
   const [clientesPerPage] = useState(5); // Clientes por página
+  const [showForm, setShowForm] = useState(false); // Controla la visibilidad del formulario
+  const [editingCliente, setEditingCliente] = useState(null); // Cliente en edición
+
+  const navigate = useNavigate(); // Hook para redirigir
 
   // Función para cargar clientes desde Supabase
   const fetchClientes = async () => {
@@ -34,6 +39,18 @@ const Clientes = () => {
     }
   };
 
+  // Manejar edición de cliente
+  const handleEdit = (cliente) => {
+    setEditingCliente(cliente); // Pasar el cliente a editar
+    setShowForm(true); // Mostrar el formulario
+  };
+
+  // Manejar cierre del formulario
+  const handleCloseForm = () => {
+    setEditingCliente(null); // Limpiar cliente en edición
+    setShowForm(false); // Ocultar formulario
+  };
+
   useEffect(() => {
     fetchClientes();
   }, []);
@@ -53,8 +70,21 @@ const Clientes = () => {
       <NavMenu />
       <h1 className="text-3xl font-bold text-center my-6">Gestión de Clientes</h1>
 
-            {/* Lista de clientes */}
-            <div className="card bg-base-200 shadow-lg p-4 max-w-4xl mx-auto">
+      {/* Botón para mostrar el formulario */}
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={() => {
+            setEditingCliente(null); // Limpiar cliente en edición
+            setShowForm(true); // Mostrar formulario
+          }}
+          className="btn btn-primary"
+        >
+          Nuevo Cliente
+        </button>
+      </div>
+
+      {/* Lista de clientes */}
+      <div className="card bg-base-200 shadow-lg p-4 max-w-4xl mx-auto">
         <h2 className="text-xl font-semibold mb-4">Lista de Clientes</h2>
         <div className="overflow-x-auto">
           <table className="table w-full">
@@ -63,6 +93,7 @@ const Clientes = () => {
                 <th className="text-left">Nombre</th>
                 <th className="text-left">Apellido</th>
                 <th className="text-left">DNI</th>
+                <th className="text-left">Teléfono</th>
                 <th className="text-center">Acciones</th>
               </tr>
             </thead>
@@ -72,12 +103,25 @@ const Clientes = () => {
                   <td>{cliente.nombre}</td>
                   <td>{cliente.apellido}</td>
                   <td>{cliente.dni}</td>
-                  <td className="text-center">
+                  <td>{cliente.telefono}</td>
+                  <td className="text-center space-x-2">
+                    <button
+                      onClick={() => handleEdit(cliente)}
+                      className="btn btn-warning btn-xs"
+                    >
+                      Editar
+                    </button>
                     <button
                       onClick={() => eliminarCliente(cliente.id)}
                       className="btn btn-error btn-xs"
                     >
                       Eliminar
+                    </button>
+                    <button
+                      onClick={() => navigate(`/servicios/${cliente.id}`)}
+                      className="btn btn-info btn-xs"
+                    >
+                      Servicios
                     </button>
                   </td>
                 </tr>
@@ -98,15 +142,21 @@ const Clientes = () => {
             {number}
           </button>
         ))}
-      </div> 
-
-
-      {/* Formulario para agregar clientes */}
-      <div className="card bg-base-200 shadow-lg p-4 mb-6 max-w-4xl mx-auto">
-        <ClienteForm fetchClientes={fetchClientes} />
       </div>
 
-
+      {/* Formulario para agregar/editar clientes */}
+      {showForm && (
+        <div className="card bg-base-200 shadow-lg p-4 mt-6 max-w-4xl mx-auto">
+          <h2 className="text-xl font-semibold mb-4">
+            {editingCliente ? "Editar Cliente" : "Nuevo Cliente"}
+          </h2>
+          <ClienteForm
+            fetchClientes={fetchClientes}
+            cliente={editingCliente} // Pasar el cliente a editar
+            onClose={handleCloseForm} // Manejar cierre del formulario
+          />
+        </div>
+      )}
     </div>
   );
 };
