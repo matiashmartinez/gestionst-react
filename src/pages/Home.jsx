@@ -12,7 +12,7 @@ const Home = () => {
   };
 
   return (
-    <div className="home">
+    <div >
       <h1>Bienvenido {user?.email}</h1>
       <button onClick={handleLogout}>Cerrar Sesión</button>
     </div>

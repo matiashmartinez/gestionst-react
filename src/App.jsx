@@ -3,7 +3,7 @@ import Login from './pages/Login';
 import Clientes from './pages/Clientes';
 import Servicios from './pages/Servicios';
 import { useEffect } from 'react';
-
+import '../src/index.css';
 function App() {
 
 
