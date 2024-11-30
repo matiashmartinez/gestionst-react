@@ -1,26 +1,33 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import ServicioForm from "../componentes/ServicioForm";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faClock, faCog, faCheckCircle } from "@fortawesome/free-solid-svg-icons";
 import NavMenu from "../componentes/NavMenu";
+import ServicioForm from "../componentes/ServicioForm";
 
 const Servicios = () => {
-  const { clienteId } = useParams(); // Capturar el clienteId desde la URL
+  const { clienteId } = useParams();
+  const navigate = useNavigate();
   const [servicios, setServicios] = useState([]);
   const [clientes, setClientes] = useState([]);
-  const [editingService, setEditingService] = useState(null); // Servicio en edición
-  const [showModal, setShowModal] = useState(false); // Controla la visibilidad del modal
-  const [notification, setNotification] = useState(null); // Notificación de éxito o error
+  const [showModal, setShowModal] = useState(false);
+  const [editingService, setEditingService] = useState(null);
+  const [mostrarTodos, setMostrarTodos] = useState(!clienteId);
+  const [selectedCliente, setSelectedCliente] = useState(clienteId || "");
+  const [searchCliente, setSearchCliente] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [notification, setNotification] = useState(null);
 
-  // Cargar servicios para el cliente especificado
   const fetchServicios = async () => {
-    const { data, error } = await supabase
-      .from("servicio")
-      .select("*, cliente(id, dni, nombre, apellido, telefono)")
-      .eq("idCliente", clienteId)
-      .eq("baja", false);
+    let query = supabase.from("servicio").select("*, cliente(id, nombre, apellido, telefono)");
+    if (!mostrarTodos && selectedCliente) {
+      query = query.eq("idCliente", selectedCliente);
+    }
+    query = query.eq("baja", false);
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error al cargar servicios:", error.message);
@@ -29,12 +36,11 @@ const Servicios = () => {
     }
   };
 
-  // Cargar clientes para el dropdown
   const fetchClientes = async () => {
     const { data, error } = await supabase
       .from("cliente")
-      .select("id, nombre, apellido, dni")
-      .eq("baja", false);
+      .select("id, nombre, apellido, telefono")
+      .order("apellido", { ascending: true });
 
     if (error) {
       console.error("Error al cargar clientes:", error.message);
@@ -46,7 +52,15 @@ const Servicios = () => {
   useEffect(() => {
     fetchServicios();
     fetchClientes();
-  }, [clienteId]);
+  }, [clienteId, mostrarTodos, selectedCliente]);
+
+  const handleSwitchChange = (checked) => {
+    setMostrarTodos(checked);
+    if (checked) {
+      navigate("/servicios");
+      setSelectedCliente("");
+    }
+  };
 
   const handleAdd = () => {
     setEditingService(null);
@@ -59,86 +73,100 @@ const Servicios = () => {
   };
 
   const handleDelete = async (id) => {
-    const confirm = window.confirm("¿Estás seguro de que deseas eliminar este servicio?");
+    const confirm = window.confirm("¿Estás seguro de eliminar este servicio?");
     if (!confirm) return;
 
-    const { error } = await supabase
-      .from("servicio")
-      .update({ baja: true })
-      .eq("id", id);
+    try {
+      const { error } = await supabase
+        .from("servicio")
+        .update({ baja: true })
+        .eq("id", id);
 
-    if (error) {
-      setNotification({ type: "error", message: "Error al eliminar el servicio." });
-      console.error("Error al eliminar servicio:", error.message);
-    } else {
+      if (error) throw new Error("No se pudo eliminar el servicio.");
+
       setNotification({ type: "success", message: "Servicio eliminado correctamente." });
       fetchServicios();
+    } catch (err) {
+      setNotification({ type: "error", message: err.message });
+      console.error(err.message);
     }
   };
 
-  const handleFormSubmit = async (data) => {
+  const cambiarEstado = async (id, nuevoEstado) => {
     try {
-      if (editingService) {
-        // Actualizar servicio existente
-        const { error } = await supabase
-          .from("servicio")
-          .update(data)
-          .eq("id", editingService.id);
+      const { error } = await supabase
+        .from("servicio")
+        .update({ estado: nuevoEstado })
+        .eq("id", id);
 
-        if (error) throw new Error("Error al actualizar el servicio.");
-        setNotification({ type: "success", message: "Servicio actualizado correctamente." });
-      } else {
-        // Agregar nuevo servicio
-        const { error } = await supabase.from("servicio").insert([data]);
-        if (error) throw new Error("Error al agregar el servicio.");
-        setNotification({ type: "success", message: "Servicio agregado correctamente." });
-      }
-      fetchServicios();
-      setShowModal(false); // Cerrar modal
-    } catch (error) {
-      setNotification({ type: "error", message: error.message });
-      console.error(error.message);
+      if (error) throw new Error("Error al cambiar estado.");
+
+      setServicios((prevServicios) =>
+        prevServicios.map((servicio) =>
+          servicio.id === id ? { ...servicio, estado: nuevoEstado } : servicio
+        )
+      );
+    } catch (err) {
+      console.error(err.message);
     }
   };
 
-  const closeNotification = () => setNotification(null);
-
-  const generarPDF = (servicio) => {
+  const generarYEnviarPDF = (servicio) => {
     const doc = new jsPDF();
-
     doc.text("Reporte de Servicio", 14, 20);
 
     doc.autoTable({
       startY: 30,
       head: [["Campo", "Detalle"]],
       body: [
-        ["Nombre", `${servicio.cliente.nombre} ${servicio.cliente.apellido}`],
-        ["DNI", servicio.cliente.dni],
+        ["Cliente", `${servicio.cliente.nombre} ${servicio.cliente.apellido}`],
         ["Teléfono", servicio.cliente.telefono],
-      ],
-    });
-
-    doc.autoTable({
-      startY: doc.lastAutoTable.finalY + 10,
-      head: [["Campo", "Detalle"]],
-      body: [
         ["Detalle", servicio.detalle],
         ["Costo", `$${servicio.costo}`],
         ["Estado", servicio.estado],
-        ["Fecha Inicio", servicio.fecha_in],
-        ["Fecha Entrega", servicio.fecha_es || "Pendiente"],
       ],
     });
 
     doc.save(`Servicio_${servicio.id}.pdf`);
+
+    const mensaje = `
+    Servicio Técnico:
+    - Cliente: ${servicio.cliente.nombre} ${servicio.cliente.apellido}
+    - Teléfono: ${servicio.cliente.telefono}
+    - Detalle: ${servicio.detalle}
+    - Costo: $${servicio.costo}
+    - Estado: ${servicio.estado}
+    `;
+    const url = `https://wa.me/${servicio.cliente.telefono}?text=${encodeURIComponent(mensaje)}`;
+    window.open(url, "_blank");
   };
+
+  const serviciosFiltrados = servicios.filter((servicio) => {
+    const detalle = servicio.detalle?.toLowerCase() || "";
+    const clienteNombre = servicio.cliente?.nombre?.toLowerCase() || "";
+    const clienteApellido = servicio.cliente?.apellido?.toLowerCase() || "";
+    const estado = servicio.estado?.toLowerCase() || "";
+
+    return (
+      detalle.includes(searchQuery) ||
+      clienteNombre.includes(searchQuery) ||
+      clienteApellido.includes(searchQuery) ||
+      estado.includes(searchQuery)
+    );
+  });
+
+  const clientesFiltrados = clientes.filter(
+    (cliente) =>
+      cliente.nombre.toLowerCase().includes(searchCliente.toLowerCase()) ||
+      cliente.apellido.toLowerCase().includes(searchCliente.toLowerCase())
+  );
 
   return (
     <div className="p-6 bg-base-100 min-h-screen">
       <NavMenu />
-      <h1 className="text-3xl font-bold text-center my-6">Servicios del Cliente</h1>
+      <h1 className="text-3xl font-bold text-center mb-6">Gestión de Servicios</h1>
 
-      {/* Notificación */}
+      {/* Notificaciones */}
       {notification && (
         <div
           className={`alert ${
@@ -147,53 +175,109 @@ const Servicios = () => {
         >
           <div>
             <span>{notification.message}</span>
-            <button onClick={closeNotification} className="btn btn-sm btn-ghost ml-4">
+            <button onClick={() => setNotification(null)} className="btn btn-sm btn-ghost">
               X
             </button>
           </div>
         </div>
       )}
 
-      {/* Botón para agregar servicio */}
-      <div className="flex justify-end mb-4">
-        <button onClick={handleAdd} className="btn btn-primary">
+      {/* Switch y Filtros */}
+      <div className="flex justify-between items-center mb-4">
+        <label className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            className="toggle toggle-primary"
+            checked={mostrarTodos}
+            onChange={(e) => handleSwitchChange(e.target.checked)}
+          />
+          <span>{mostrarTodos ? "Ver Todos los Servicios" : "Ver Servicios del Cliente"}</span>
+        </label>
+
+        {!mostrarTodos && (
+          <div className="form-control w-full max-w-xs">
+            <input
+              type="text"
+              placeholder="Buscar cliente..."
+              value={searchCliente}
+              onChange={(e) => setSearchCliente(e.target.value)}
+              className="input input-bordered"
+            />
+            <ul className="bg-white shadow-lg rounded mt-2">
+              {clientesFiltrados.map((cliente) => (
+                <li
+                  key={cliente.id}
+                  className="p-2 cursor-pointer hover:bg-gray-200"
+                  onClick={() => setSelectedCliente(cliente.id)}
+                >
+                  {cliente.nombre} {cliente.apellido}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="form-control w-full max-w-xs">
+          <input
+            type="text"
+            placeholder="Buscar servicios..."
+            className="input input-bordered"
+            onChange={(e) => setSearchQuery(e.target.value.toLowerCase())}
+          />
+        </div>
+        <button className="btn btn-primary" onClick={handleAdd}>
           Nuevo Servicio
         </button>
       </div>
 
-      {/* Tabla de servicios */}
+      {/* Tabla */}
       <div className="overflow-x-auto">
         <table className="table w-full">
           <thead>
             <tr>
               <th>Detalle</th>
-              <th>Costo</th>
-              <th>Estado</th>
               <th>Cliente</th>
+              <th>Estado</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {servicios.map((servicio) => (
+            {serviciosFiltrados.map((servicio) => (
               <tr key={servicio.id}>
                 <td>{servicio.detalle}</td>
-                <td>${servicio.costo}</td>
-                <td>{servicio.estado}</td>
                 <td>
                   {servicio.cliente.nombre} {servicio.cliente.apellido}
                 </td>
+                <td>
+                  <FontAwesomeIcon
+                    icon={
+                      servicio.estado === "pendiente"
+                        ? faClock
+                        : servicio.estado === "en progreso"
+                        ? faCog
+                        : faCheckCircle
+                    }
+                    className={`${
+                      servicio.estado === "pendiente"
+                        ? "text-gray-500"
+                        : servicio.estado === "en progreso"
+                        ? "text-yellow-500"
+                        : "text-green-500"
+                    }`}
+                  />
+                </td>
                 <td className="flex space-x-2">
-                  <button
-                    onClick={() => handleEdit(servicio)}
-                    className="btn btn-warning btn-sm"
-                  >
+                  <button className="btn btn-warning btn-sm" onClick={() => handleEdit(servicio)}>
                     Editar
                   </button>
-                  <button
-                    onClick={() => handleDelete(servicio.id)}
-                    className="btn btn-error btn-sm"
-                  >
+                  <button className="btn btn-error btn-sm" onClick={() => handleDelete(servicio.id)}>
                     Eliminar
+                  </button>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => generarYEnviarPDF(servicio)}
+                  >
+                    WhatsApp + PDF
                   </button>
                 </td>
               </tr>
@@ -202,23 +286,18 @@ const Servicios = () => {
         </table>
       </div>
 
+      {/* Modal */}
       {showModal && (
         <div className="modal modal-open">
           <div className="modal-box">
             <ServicioForm
-              clientes={clientes}
               initialData={editingService}
-              onSubmit={handleFormSubmit}
-              onClose={() => setShowModal(false)} // Cerrar modal
+              onSubmit={() => {
+                fetchServicios();
+                setShowModal(false);
+              }}
+              onClose={() => setShowModal(false)}
             />
-            <div className="modal-action">
-              <button
-                className="btn btn-ghost"
-                onClick={() => setShowModal(false)}
-              >
-                Cancelar
-              </button>
-            </div>
           </div>
         </div>
       )}
