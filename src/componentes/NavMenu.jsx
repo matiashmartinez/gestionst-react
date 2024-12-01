@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 
+
 const NavMenu = () => {
   const navigate = useNavigate();
 

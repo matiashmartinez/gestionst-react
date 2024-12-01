@@ -6,32 +6,46 @@ import NavMenu from "../componentes/NavMenu";
 
 const Clientes = () => {
   const [clientes, setClientes] = useState([]);
+  const [filteredClientes, setFilteredClientes] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [clientesPerPage] = useState(5);
   const [showForm, setShowForm] = useState(false);
   const [editingCliente, setEditingCliente] = useState(null);
+  const [notification, setNotification] = useState(null);
 
   const navigate = useNavigate();
 
   const fetchClientes = async () => {
-    const { data, error } = await supabase
-      .from("cliente")
-      .select("*")
-      .eq("baja", false);
+    try {
+      const { data, error } = await supabase
+        .from("cliente")
+        .select("*")
+        .eq("baja", false)
+        .order("apellido", { ascending: true });
 
-    if (error) {
-      console.error("Error al cargar clientes:", error.message);
-    } else {
+      if (error) throw new Error("Error al cargar clientes.");
       setClientes(data);
+      setFilteredClientes(data);
+    } catch (error) {
+      console.error(error.message);
+      setNotification({ type: "error", message: error.message });
     }
   };
 
   const eliminarCliente = async (id) => {
-    const { error } = await supabase.from("cliente").update({ baja: true }).eq("id", id);
-    if (error) {
-      console.error("Error al eliminar cliente:", error.message);
-    } else {
+    if (!window.confirm("¿Estás seguro de eliminar este cliente?")) return;
+    try {
+      const { error } = await supabase
+        .from("cliente")
+        .update({ baja: true })
+        .eq("id", id);
+
+      if (error) throw new Error("Error al eliminar cliente.");
+      setNotification({ type: "success", message: "Cliente eliminado correctamente." });
       fetchClientes();
+    } catch (error) {
+      setNotification({ type: "error", message: error.message });
     }
   };
 
@@ -49,13 +63,37 @@ const Clientes = () => {
     fetchClientes();
   }, []);
 
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  useEffect(() => {
+    const query = searchQuery.toLowerCase();
+    const filtrados = clientes.filter((cliente) => {
+      const nombre = cliente.nombre?.toLowerCase() || "";
+      const apellido = cliente.apellido?.toLowerCase() || "";
+      const dni = cliente.dni || "";
+      const telefono = cliente.telefono || "";
+
+      return (
+        nombre.includes(query) ||
+        apellido.includes(query) ||
+        dni.includes(query) ||
+        telefono.includes(query)
+      );
+    });
+    setFilteredClientes(filtrados);
+    setCurrentPage(1); // Reiniciar a la primera página tras el filtro
+  }, [searchQuery, clientes]);
+
   const indexOfLastCliente = currentPage * clientesPerPage;
   const indexOfFirstCliente = indexOfLastCliente - clientesPerPage;
-  const currentClientes = clientes.slice(indexOfFirstCliente, indexOfLastCliente);
+  const currentClientes = filteredClientes.slice(indexOfFirstCliente, indexOfLastCliente);
 
-  const totalPages = Math.ceil(clientes.length / clientesPerPage);
-  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
-
+  const totalPages = Math.ceil(filteredClientes.length / clientesPerPage);
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   return (
@@ -63,7 +101,26 @@ const Clientes = () => {
       <NavMenu />
       <h1 className="text-3xl font-bold text-center my-6">Gestión de Clientes</h1>
 
-      <div className="flex justify-end mb-4">
+      {notification && (
+        <div
+          className={`alert ${
+            notification.type === "success" ? "alert-success" : "alert-error"
+          } shadow-lg`}
+        >
+          <div>
+            <span>{notification.message}</span>
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-between items-center mb-4">
+        <input
+          type="text"
+          placeholder="Buscar por nombre, apellido, DNI o teléfono"
+          className="input input-bordered w-full max-w-xs"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
         <button
           onClick={() => {
             setEditingCliente(null);
@@ -123,13 +180,13 @@ const Clientes = () => {
       </div>
 
       <div className="mt-6 flex justify-center space-x-2">
-        {pageNumbers.map((number) => (
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
           <button
-            key={number}
-            onClick={() => paginate(number)}
-            className={`btn btn-sm ${currentPage === number ? "btn-active" : ""}`}
+            key={page}
+            onClick={() => paginate(page)}
+            className={`btn btn-sm ${currentPage === page ? "btn-active" : ""}`}
           >
-            {number}
+            {page}
           </button>
         ))}
       </div>

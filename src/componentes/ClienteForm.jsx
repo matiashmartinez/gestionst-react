@@ -9,31 +9,83 @@ const ClienteForm = ({ fetchClientes, cliente, onClose }) => {
     dni: "",
     telefono: "",
   });
-  const [isSubmitting, setIsSubmitting] = useState(false); // Estado de envío
-  const [successMessage, setSuccessMessage] = useState(""); // Mensaje de éxito
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     if (cliente) {
-      setFormData(cliente); // Rellenar datos al editar
+      setFormData(cliente);
     } else {
-      setFormData({ nombre: "", apellido: "", dni: "", telefono: "" }); // Limpiar datos al crear
+      setFormData({ nombre: "", apellido: "", dni: "", telefono: "" });
     }
   }, [cliente]);
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    // Validaciones específicas
+    if (name === "dni" || name === "telefono") {
+      if (!/^\d*$/.test(value)) return; // Permitir solo números
+    }
+
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
+  };
+
+  const validateForm = async () => {
+    const { nombre, apellido, dni, telefono } = formData;
+
+    if (!nombre || !apellido || !dni || !telefono) {
+      setErrorMessage("Todos los campos son obligatorios.");
+      return false;
+    }
+
+    if (dni.length < 7 || dni.length > 10) {
+      setErrorMessage("El DNI debe tener entre 7 y 10 números.");
+      return false;
+    }
+
+    if (telefono.length < 8 || telefono.length > 15) {
+      setErrorMessage("El teléfono debe tener entre 8 y 15 números.");
+      return false;
+    }
+
+    // Verificar si el DNI ya existe en la base de datos
+    const { data, error } = await supabase
+      .from("cliente")
+      .select("id")
+      .eq("dni", dni);
+
+    if (error) {
+      setErrorMessage("Error al validar el DNI.");
+      return false;
+    }
+
+    if (data.length > 0 && (!cliente || data[0].id !== cliente.id)) {
+      setErrorMessage("El DNI ya está registrado.");
+      return false;
+    }
+
+    setErrorMessage("");
+    return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true); // Mostrar estado de envío
+    setIsSubmitting(true);
+
+    const isValid = await validateForm();
+    if (!isValid) {
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       if (cliente) {
         // Editar cliente
-        console.log("Actualizando cliente con datos:", formData);
         const { error } = await supabase
           .from("cliente")
           .update({
@@ -47,20 +99,19 @@ const ClienteForm = ({ fetchClientes, cliente, onClose }) => {
         setSuccessMessage("Cliente actualizado correctamente.");
       } else {
         // Crear nuevo cliente
-        console.log("Creando nuevo cliente con datos:", formData);
         const { error } = await supabase.from("cliente").insert([formData]);
         if (error) throw error;
         setSuccessMessage("Cliente creado correctamente.");
       }
-      fetchClientes(); // Actualizar lista
+      fetchClientes();
       setTimeout(() => {
-        onClose(); // Cerrar formulario después de un pequeño delay
+        onClose();
       }, 1000);
     } catch (error) {
       console.error("Error al guardar cliente:", error.message);
-      alert(`Error: ${error.message}`);
+      setErrorMessage(`Error: ${error.message}`);
     } finally {
-      setIsSubmitting(false); // Finalizar estado de envío
+      setIsSubmitting(false);
     }
   };
 
@@ -122,11 +173,14 @@ const ClienteForm = ({ fetchClientes, cliente, onClose }) => {
           required
         />
       </div>
-      {/* Mensaje de éxito */}
+
+      {errorMessage && (
+        <p className="text-red-500 font-semibold">{errorMessage}</p>
+      )}
       {successMessage && (
         <p className="text-green-500 font-semibold">{successMessage}</p>
       )}
-      {/* Botones */}
+
       <div className="flex justify-end space-x-4">
         <button
           type="button"
