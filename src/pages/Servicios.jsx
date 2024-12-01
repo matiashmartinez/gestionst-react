@@ -1,8 +1,8 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faClock, faCog, faCheckCircle } from "@fortawesome/free-solid-svg-icons";
+import { faClock, faCog, faCheckCircle, faEdit, faTrash, faFilePdf } from "@fortawesome/free-solid-svg-icons";
 import NavMenu from "../componentes/NavMenu";
 import ServicioForm from "../componentes/ServicioForm";
 import generarYEnviarPDF from "../utils/exportarReporte";
@@ -10,27 +10,40 @@ import generarYEnviarPDF from "../utils/exportarReporte";
 const Servicios = () => {
   const { clienteId } = useParams();
   const navigate = useNavigate();
+
   const [servicios, setServicios] = useState([]);
-  const [clientes, setClientes] = useState([]);
+  const [filteredServicios, setFilteredServicios] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingService, setEditingService] = useState(null);
   const [mostrarTodos, setMostrarTodos] = useState(!clienteId);
   const [selectedCliente, setSelectedCliente] = useState(clienteId || "");
   const [searchQuery, setSearchQuery] = useState("");
   const [notification, setNotification] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const serviciosPerPage = 5;
 
-  // Memoizar fetchServicios con useCallback
+  // **Función para obtener servicios**
   const fetchServicios = useCallback(async () => {
     try {
       let query = supabase
         .from("servicio")
-        .select("*, cliente(id, nombre, apellido, telefono, dni)");
+        .select(`
+          idServicio,
+          fecha_in,
+          fecha_es,
+          detalle,
+          costo,
+          num_factura,
+          estado,
+          idCliente,
+          cliente (id, nombre, apellido, telefono, dni)
+        `)
+        .eq("baja", false)
+        .order("fecha_in", { ascending: false });
 
       if (!mostrarTodos && selectedCliente) {
         query = query.eq("idCliente", selectedCliente);
       }
-
-      query = query.eq("baja", false);
 
       const { data, error } = await query;
 
@@ -38,35 +51,47 @@ const Servicios = () => {
         console.error("Error al cargar servicios:", error.message);
         throw error;
       }
+
       setServicios(data);
+      setFilteredServicios(data);
     } catch (error) {
-      console.error("Error en fetchServicios:", error.message);
+      setNotification({ type: "error", message: error.message });
     }
   }, [mostrarTodos, selectedCliente]);
 
-  const fetchClientes = async () => {
-    const { data, error } = await supabase
-      .from("cliente")
-      .select("id, nombre, apellido, telefono, dni")
-      .order("apellido", { ascending: true });
+  // **Filtro dinámico**
+  useEffect(() => {
+    const query = searchQuery.toLowerCase();
+    const filtrados = servicios.filter((servicio) => {
+      const detalle = servicio.detalle?.toLowerCase() || "";
+      const clienteNombre = servicio.cliente?.nombre?.toLowerCase() || "";
+      const clienteApellido = servicio.cliente?.apellido?.toLowerCase() || "";
+      const clienteDni = servicio.cliente?.dni || "";
+      const estado = servicio.estado?.toLowerCase() || "";
 
-    if (error) {
-      console.error("Error al cargar clientes:", error.message);
-    } else {
-      setClientes(data);
-    }
-  };
+      return (
+        detalle.includes(query) ||
+        clienteNombre.includes(query) ||
+        clienteApellido.includes(query) ||
+        clienteDni.includes(query) ||
+        estado.includes(query)
+      );
+    });
+    setFilteredServicios(filtrados);
+    setCurrentPage(1); // Reiniciar a la primera página tras el filtro
+  }, [searchQuery, servicios]);
 
+  // **Cargar servicios al inicio**
   useEffect(() => {
     fetchServicios();
-    fetchClientes();
-  }, [clienteId, mostrarTodos, selectedCliente, fetchServicios]);
+  }, [fetchServicios]);
 
   const handleSwitchChange = (checked) => {
     setMostrarTodos(checked);
     if (checked) {
       navigate("/servicios");
-      setSelectedCliente("");
+    } else if (clienteId) {
+      setSelectedCliente(clienteId);
     }
   };
 
@@ -81,8 +106,7 @@ const Servicios = () => {
   };
 
   const handleDelete = async (idServicio) => {
-    const confirm = window.confirm("¿Estás seguro de eliminar este servicio?");
-    if (!confirm) return;
+    if (!window.confirm("¿Estás seguro de eliminar este servicio?")) return;
 
     try {
       const { error } = await supabase
@@ -96,7 +120,6 @@ const Servicios = () => {
       fetchServicios();
     } catch (err) {
       setNotification({ type: "error", message: err.message });
-      console.error(err.message);
     }
   };
 
@@ -117,25 +140,24 @@ const Servicios = () => {
       setNotification({ type: "success", message: "Estado actualizado correctamente." });
     } catch (err) {
       setNotification({ type: "error", message: err.message });
-      console.error(err.message);
     }
   };
 
-  const serviciosFiltrados = servicios.filter((servicio) => {
-    const detalle = servicio.detalle?.toLowerCase() || "";
-    const clienteNombre = servicio.cliente?.nombre?.toLowerCase() || "";
-    const clienteApellido = servicio.cliente?.apellido?.toLowerCase() || "";
-    const clienteDni = servicio.cliente?.dni || "";
-    const estado = servicio.estado?.toLowerCase() || "";
+  // **Paginación**
+  const indexOfLastServicio = currentPage * serviciosPerPage;
+  const indexOfFirstServicio = indexOfLastServicio - serviciosPerPage;
+  const currentServicios = filteredServicios.slice(indexOfFirstServicio, indexOfLastServicio);
 
-    return (
-      detalle.includes(searchQuery) ||
-      clienteNombre.includes(searchQuery) ||
-      clienteApellido.includes(searchQuery) ||
-      clienteDni.includes(searchQuery) ||
-      estado.includes(searchQuery)
-    );
-  });
+  const totalPages = Math.ceil(filteredServicios.length / serviciosPerPage);
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  // **Notificaciones**
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   return (
     <div className="p-6 bg-base-100 min-h-screen">
@@ -150,9 +172,6 @@ const Servicios = () => {
         >
           <div>
             <span>{notification.message}</span>
-            <button onClick={() => setNotification(null)} className="btn btn-sm btn-ghost">
-              X
-            </button>
           </div>
         </div>
       )}
@@ -189,11 +208,11 @@ const Servicios = () => {
               <th>Detalle</th>
               <th>Cliente</th>
               <th>Estado</th>
-              <th>Acciones</th>
+              <th className="text-center">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {serviciosFiltrados.map((servicio) => (
+            {currentServicios.map((servicio) => (
               <tr key={servicio.idServicio}>
                 <td>{servicio.detalle}</td>
                 <td>
@@ -217,9 +236,8 @@ const Servicios = () => {
                     }`}
                   />
                 </td>
-                <td className="flex space-x-2">
+                <td className="flex justify-center space-x-2">
                   <button
-                    className="btn btn-primary btn-sm"
                     onClick={() =>
                       cambiarEstado(
                         servicio.idServicio,
@@ -227,25 +245,38 @@ const Servicios = () => {
                       )
                     }
                   >
-                    {servicio.estado === "finalizado" ? "Marcar Pendiente" : "Finalizar"}
+                    <FontAwesomeIcon
+                      icon={servicio.estado === "finalizado" ? faClock : faCheckCircle}
+                      title={servicio.estado === "finalizado" ? "Marcar Pendiente" : "Finalizar"}
+                      className="text-blue-500"
+                    />
                   </button>
-                  <button className="btn btn-warning btn-sm" onClick={() => handleEdit(servicio)}>
-                    Editar
+                  <button onClick={() => handleEdit(servicio)}>
+                    <FontAwesomeIcon icon={faEdit} title="Editar" className="text-yellow-500" />
                   </button>
-                  <button className="btn btn-error btn-sm" onClick={() => handleDelete(servicio.idServicio)}>
-                    Eliminar
+                  <button onClick={() => handleDelete(servicio.idServicio)}>
+                    <FontAwesomeIcon icon={faTrash} title="Eliminar" className="text-red-500" />
                   </button>
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={() => generarYEnviarPDF(servicio)}
-                  >
-                    WhatsApp + PDF
+                  <button onClick={() => generarYEnviarPDF(servicio)}>
+                    <FontAwesomeIcon icon={faFilePdf} title="PDF" className="text-green-500" />
                   </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="mt-6 flex justify-center space-x-2">
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+          <button
+            key={page}
+            onClick={() => paginate(page)}
+            className={`btn btn-sm ${currentPage === page ? "btn-active" : ""}`}
+          >
+            {page}
+          </button>
+        ))}
       </div>
 
       {showModal && (

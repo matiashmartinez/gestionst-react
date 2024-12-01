@@ -14,7 +14,7 @@ const NavMenu = () => {
   };
 
   return (
-    <nav className="navbar bg-base-100 shadow-lg p-4">
+    <nav className="navbar bg-base-100  p-4">
       {/* Menú de navegación */}
       <div className="flex-1">
         <Link to="/" className="btn btn-ghost normal-case text-xl">
@@ -34,7 +34,7 @@ const NavMenu = () => {
         </ul>
         <button
           onClick={handleSignOut}
-          className="btn btn-error ml-4"
+          className="btn btn-error ml-4 p-4"
         >
           Cerrar sesión
         </button>

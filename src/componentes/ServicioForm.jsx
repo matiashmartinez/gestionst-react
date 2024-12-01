@@ -17,10 +17,12 @@ const ServicioForm = ({ fetchServicios, onClose, initialData }) => {
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
+      setFormData({
+        ...initialData,
+        idCliente: initialData.idCliente || "", // Asegura que idCliente esté presente
+      });
     }
   }, [initialData]);
-
   useEffect(() => {
     const fetchClientes = async () => {
       const { data, error } = await supabase
@@ -47,23 +49,36 @@ const ServicioForm = ({ fetchServicios, onClose, initialData }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+  
     if (!formData.idCliente) {
       setNotification("Por favor, selecciona un cliente.");
       return;
     }
+  
     try {
       if (initialData) {
         // Editar servicio
         const { error } = await supabase
           .from("servicio")
-          .update(formData)
-          .eq("id", initialData.id);
-        if (error) throw new Error(error.message);
+          .update({
+            fecha_in: formData.fecha_in,
+            fecha_es: formData.fecha_es,
+            detalle: formData.detalle,
+            costo: formData.costo,
+            num_factura: formData.num_factura,
+            idCliente: formData.idCliente, // Relación con cliente
+            estado: formData.estado, // Asegúrate de que este campo existe
+          })
+          .eq("idServicio", initialData.idServicio); // Usamos idServicio como clave primaria
+  
+        if (error) throw new Error("Error al editar el servicio.");
       } else {
         // Agregar servicio
         const { error } = await supabase.from("servicio").insert([formData]);
-        if (error) throw new Error(error.message);
+  
+        if (error) throw new Error("Error al agregar el servicio.");
       }
+  
       setNotification("Servicio guardado exitosamente.");
       fetchServicios();
       onClose(); // Cerrar modal tras éxito
@@ -228,14 +243,17 @@ const ServicioForm = ({ fetchServicios, onClose, initialData }) => {
 
 
 ServicioForm.propTypes = {
-  fetchServicios: PropTypes.func.isRequired, // Valida que sea una función y que sea obligatoria
+  fetchServicios: PropTypes.func.isRequired, // Valida que sea una función
+  onClose: PropTypes.func.isRequired, // Valida que sea una función
   initialData: PropTypes.shape({
-    id: PropTypes.number, // Valida que id sea un número
-    detalle: PropTypes.string, // Valida que detalle sea un string
-    costo: PropTypes.string, // Valida que costo sea un string
+    idServicio: PropTypes.number, // Validar idServicio como número
+    fecha_in: PropTypes.string, // Validar fecha_in como cadena
+    fecha_es: PropTypes.string, // Validar fecha_es como cadena
+    detalle: PropTypes.string, // Validar detalle como cadena
+    costo: PropTypes.string, // Validar costo como cadena
+    num_factura: PropTypes.string, // Validar número de factura como cadena
+    idCliente: PropTypes.number, // Validar idCliente como número
+    estado: PropTypes.string, // Validar estado como cadena
   }),
-  onSubmit: PropTypes.func.isRequired, // Valida que sea una función y requerida
-  onClose: PropTypes.func.isRequired, // Valida que sea una función y requerida
 };
-
 export default ServicioForm;
