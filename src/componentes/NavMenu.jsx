@@ -39,6 +39,7 @@ const NavMenu = () => {
         >
           Cerrar sesión
         </button>
+        
       </div>
     </nav>
   );

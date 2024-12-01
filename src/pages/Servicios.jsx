@@ -1,28 +1,48 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faClock, faCog, faCheckCircle, faEdit, faTrash, faFilePdf } from "@fortawesome/free-solid-svg-icons";
+import {
+  faClock,
+  faCog,
+  faCheckCircle,
+  faEdit,
+  faTrash,
+  faFilePdf,
+  faEye,
+  faSort,
+} from "@fortawesome/free-solid-svg-icons";
 import NavMenu from "../componentes/NavMenu";
 import ServicioForm from "../componentes/ServicioForm";
 import generarYEnviarPDF from "../utils/exportarReporte";
 
+// Utilidad para formatear fechas
+const formatFecha = (fecha) => {
+  if (!fecha) return "-";
+  const date = new Date(fecha);
+  return new Intl.DateTimeFormat("es-ES", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(date);
+};
+
 const Servicios = () => {
   const { clienteId } = useParams();
-  const navigate = useNavigate();
 
   const [servicios, setServicios] = useState([]);
   const [filteredServicios, setFilteredServicios] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [modalDetails, setModalDetails] = useState(null);
   const [editingService, setEditingService] = useState(null);
   const [mostrarTodos, setMostrarTodos] = useState(!clienteId);
-  const [selectedCliente, setSelectedCliente] = useState(clienteId || "");
+  const [selectedCliente] = useState(clienteId || "");
   const [searchQuery, setSearchQuery] = useState("");
   const [notification, setNotification] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortConfig, setSortConfig] = useState({ key: "fecha_in", direction: "desc" });
   const serviciosPerPage = 5;
 
-  // **Función para obtener servicios**
   const fetchServicios = useCallback(async () => {
     try {
       let query = supabase
@@ -38,8 +58,7 @@ const Servicios = () => {
           idCliente,
           cliente (id, nombre, apellido, telefono, dni)
         `)
-        .eq("baja", false)
-        .order("fecha_in", { ascending: false });
+        .eq("baja", false);
 
       if (!mostrarTodos && selectedCliente) {
         query = query.eq("idCliente", selectedCliente);
@@ -59,7 +78,10 @@ const Servicios = () => {
     }
   }, [mostrarTodos, selectedCliente]);
 
-  // **Filtro dinámico**
+  useEffect(() => {
+    fetchServicios();
+  }, [fetchServicios]);
+
   useEffect(() => {
     const query = searchQuery.toLowerCase();
     const filtrados = servicios.filter((servicio) => {
@@ -77,22 +99,32 @@ const Servicios = () => {
         estado.includes(query)
       );
     });
+
     setFilteredServicios(filtrados);
-    setCurrentPage(1); // Reiniciar a la primera página tras el filtro
+    setCurrentPage(1);
   }, [searchQuery, servicios]);
 
-  // **Cargar servicios al inicio**
-  useEffect(() => {
-    fetchServicios();
-  }, [fetchServicios]);
+  const handleSort = (key) => {
+    const direction = sortConfig.key === key && sortConfig.direction === "asc" ? "desc" : "asc";
+    setSortConfig({ key, direction });
 
-  const handleSwitchChange = (checked) => {
-    setMostrarTodos(checked);
-    if (checked) {
-      navigate("/servicios");
-    } else if (clienteId) {
-      setSelectedCliente(clienteId);
-    }
+    const sortedData = [...filteredServicios].sort((a, b) => {
+      if (a[key] < b[key]) return direction === "asc" ? -1 : 1;
+      if (a[key] > b[key]) return direction === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    setFilteredServicios(sortedData);
+  };
+
+  const calculateDaysRemaining = (fecha_es) => {
+    const today = new Date();
+    const estimatedDate = new Date(fecha_es);
+    const daysDiff = Math.ceil((estimatedDate - today) / (1000 * 60 * 60 * 24));
+
+    if (daysDiff < 0) return { days: daysDiff, status: "atrasado" };
+    if (daysDiff <= 3) return { days: daysDiff, status: "urgente" };
+    return { days: daysDiff, status: "normal" };
   };
 
   const handleAdd = () => {
@@ -103,6 +135,10 @@ const Servicios = () => {
   const handleEdit = (servicio) => {
     setEditingService(servicio);
     setShowModal(true);
+  };
+
+  const handleViewDetails = (servicio) => {
+    setModalDetails(servicio);
   };
 
   const handleDelete = async (idServicio) => {
@@ -143,7 +179,6 @@ const Servicios = () => {
     }
   };
 
-  // **Paginación**
   const indexOfLastServicio = currentPage * serviciosPerPage;
   const indexOfFirstServicio = indexOfLastServicio - serviciosPerPage;
   const currentServicios = filteredServicios.slice(indexOfFirstServicio, indexOfLastServicio);
@@ -151,10 +186,9 @@ const Servicios = () => {
   const totalPages = Math.ceil(filteredServicios.length / serviciosPerPage);
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
-  // **Notificaciones**
   useEffect(() => {
     if (notification) {
-      const timer = setTimeout(() => setNotification(null), 5000);
+      const timer = setTimeout(() => setNotification(null), 3000);
       return () => clearTimeout(timer);
     }
   }, [notification]);
@@ -162,27 +196,23 @@ const Servicios = () => {
   return (
     <div className="p-6 bg-base-100 min-h-screen">
       <NavMenu />
-      <h1 className="text-3xl font-bold text-center mb-6">Gestión de Servicios</h1>
+      <h1 className="text-2xl font-bold text-center mb-8">Gestionar Servicios</h1>
 
       {notification && (
-        <div
-          className={`alert ${
-            notification.type === "success" ? "alert-success" : "alert-error"
-          } shadow-lg`}
-        >
+        <div className="alert alert-info shadow-lg mb-4 max-w-lg mx-auto">
           <div>
             <span>{notification.message}</span>
           </div>
         </div>
       )}
 
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-6">
         <label className="flex items-center space-x-2">
           <input
             type="checkbox"
             className="toggle toggle-primary"
             checked={mostrarTodos}
-            onChange={(e) => handleSwitchChange(e.target.checked)}
+            onChange={(e) => setMostrarTodos(e.target.checked)}
           />
           <span>{mostrarTodos ? "Ver Todos los Servicios" : "Ver Servicios del Cliente"}</span>
         </label>
@@ -201,68 +231,104 @@ const Servicios = () => {
         </button>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto mx-auto max-w-screen-lg mt-8">
         <table className="table w-full">
           <thead>
             <tr>
+              <th>
+                Fecha Ingreso{" "}
+                <FontAwesomeIcon
+                  icon={faSort}
+                  onClick={() => handleSort("fecha_in")}
+                  className="cursor-pointer"
+                />
+              </th>
               <th>Detalle</th>
               <th>Cliente</th>
+              <th>
+                Días Restantes{" "}
+                <FontAwesomeIcon
+                  icon={faSort}
+                  onClick={() => handleSort("fecha_es")}
+                  className="cursor-pointer"
+                />
+              </th>
+              <th>Fecha Estimada</th>
               <th>Estado</th>
-              <th className="text-center">Acciones</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {currentServicios.map((servicio) => (
-              <tr key={servicio.idServicio}>
-                <td>{servicio.detalle}</td>
-                <td>
-                  {servicio.cliente.nombre} {servicio.cliente.apellido}
-                </td>
-                <td>
-                  <FontAwesomeIcon
-                    icon={
-                      servicio.estado === "pendiente"
-                        ? faClock
-                        : servicio.estado === "en progreso"
-                        ? faCog
-                        : faCheckCircle
-                    }
+            {currentServicios.map((servicio) => {
+              const { days, status } = calculateDaysRemaining(servicio.fecha_es);
+              return (
+                <tr key={servicio.idServicio}>
+                  <td>{formatFecha(servicio.fecha_in)}</td>
+                  <td>{servicio.detalle}</td>
+                  <td>
+                    {servicio.cliente.nombre} {servicio.cliente.apellido}
+                  </td>
+                  <td
                     className={`${
-                      servicio.estado === "pendiente"
-                        ? "text-gray-500"
-                        : servicio.estado === "en progreso"
-                        ? "text-yellow-500"
+                      status === "atrasado"
+                        ? "text-red-500 font-bold"
+                        : status === "urgente"
+                        ? "text-yellow-500 font-semibold"
                         : "text-green-500"
                     }`}
-                  />
-                </td>
-                <td className="flex justify-center space-x-2">
-                  <button
-                    onClick={() =>
-                      cambiarEstado(
-                        servicio.idServicio,
-                        servicio.estado === "finalizado" ? "pendiente" : "finalizado"
-                      )
-                    }
                   >
+                    {days < 0 ? `Atrasado (${Math.abs(days)} días)` : `${days} días`}
+                  </td>
+                  <td>{formatFecha(servicio.fecha_es)}</td>
+                  <td>
                     <FontAwesomeIcon
-                      icon={servicio.estado === "finalizado" ? faClock : faCheckCircle}
-                      title={servicio.estado === "finalizado" ? "Marcar Pendiente" : "Finalizar"}
-                      className="text-blue-500"
+                      icon={
+                        servicio.estado === "pendiente"
+                          ? faClock
+                          : servicio.estado === "en progreso"
+                          ? faCog
+                          : faCheckCircle
+                      }
+                      className={`${
+                        servicio.estado === "pendiente"
+                          ? "text-gray-500"
+                          : servicio.estado === "en progreso"
+                          ? "text-yellow-500"
+                          : "text-green-500"
+                      }`}
                     />
-                  </button>
-                  <button onClick={() => handleEdit(servicio)}>
-                    <FontAwesomeIcon icon={faEdit} title="Editar" className="text-yellow-500" />
-                  </button>
-                  <button onClick={() => handleDelete(servicio.idServicio)}>
-                    <FontAwesomeIcon icon={faTrash} title="Eliminar" className="text-red-500" />
-                  </button>
-                  <button onClick={() => generarYEnviarPDF(servicio)}>
-                    <FontAwesomeIcon icon={faFilePdf} title="PDF" className="text-green-500" />
-                  </button>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="flex justify-center space-x-2">
+                    <button onClick={() => handleViewDetails(servicio)}>
+                      <FontAwesomeIcon icon={faEye} title="Ver Detalles" className="text-gray-500" />
+                    </button>
+                    <button
+                      onClick={() =>
+                        cambiarEstado(
+                          servicio.idServicio,
+                          servicio.estado === "finalizado" ? "pendiente" : "finalizado"
+                        )
+                      }
+                    >
+                      <FontAwesomeIcon
+                        icon={servicio.estado === "finalizado" ? faClock : faCheckCircle}
+                        title={servicio.estado === "finalizado" ? "Marcar Pendiente" : "Finalizar"}
+                        className="text-blue-500"
+                      />
+                    </button>
+                    <button onClick={() => handleEdit(servicio)}>
+                      <FontAwesomeIcon icon={faEdit} title="Editar" className="text-yellow-500" />
+                    </button>
+                    <button onClick={() => handleDelete(servicio.idServicio)}>
+                      <FontAwesomeIcon icon={faTrash} title="Eliminar" className="text-red-500" />
+                    </button>
+                    <button onClick={() => generarYEnviarPDF(servicio)}>
+                      <FontAwesomeIcon icon={faFilePdf} title="PDF" className="text-green-500" />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -287,6 +353,43 @@ const Servicios = () => {
               onClose={() => setShowModal(false)}
               initialData={editingService}
             />
+          </div>
+        </div>
+      )}
+
+      {modalDetails && (
+        <div className="modal modal-open">
+          <div className="modal-box">
+            <h2 className="text-xl font-bold mb-4">Detalles del Servicio</h2>
+            <p>
+              <strong>Detalle:</strong> {modalDetails.detalle}
+            </p>
+            <p>
+              <strong>Cliente:</strong> {modalDetails.cliente.nombre} {modalDetails.cliente.apellido}
+            </p>
+            <p>
+              <strong>Teléfono:</strong> {modalDetails.cliente.telefono}
+            </p>
+            <p>
+              <strong>Fecha Ingreso:</strong> {formatFecha(modalDetails.fecha_in)}
+            </p>
+            <p>
+              <strong>Fecha Estimada:</strong> {formatFecha(modalDetails.fecha_es)}
+            </p>
+            <p>
+              <strong>Costo:</strong> ${modalDetails.costo}
+            </p>
+            <p>
+              <strong>Estado:</strong> {modalDetails.estado}
+            </p>
+            <div className="modal-action">
+              <button
+                onClick={() => setModalDetails(null)}
+                className="btn btn-sm btn-ghost"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}

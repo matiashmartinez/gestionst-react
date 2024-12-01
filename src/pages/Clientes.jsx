@@ -113,10 +113,10 @@ const Clientes = () => {
         </div>
       )}
 
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-center items-center mb-6 space-x-4">
         <input
           type="text"
-          placeholder="Buscar por nombre, apellido, DNI o teléfono"
+          placeholder="Buscar..."
           className="input input-bordered w-full max-w-xs"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
