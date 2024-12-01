@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient";
+import PropTypes from 'prop-types';
 
 const ServicioForm = ({ fetchServicios, onClose, initialData }) => {
   const [clientes, setClientes] = useState([]);
@@ -223,6 +224,18 @@ const ServicioForm = ({ fetchServicios, onClose, initialData }) => {
       </div>
     </form>
   );
+};
+
+
+ServicioForm.propTypes = {
+  fetchServicios: PropTypes.func.isRequired, // Valida que sea una función y que sea obligatoria
+  initialData: PropTypes.shape({
+    id: PropTypes.number, // Valida que id sea un número
+    detalle: PropTypes.string, // Valida que detalle sea un string
+    costo: PropTypes.string, // Valida que costo sea un string
+  }),
+  onSubmit: PropTypes.func.isRequired, // Valida que sea una función y requerida
+  onClose: PropTypes.func.isRequired, // Valida que sea una función y requerida
 };
 
 export default ServicioForm;

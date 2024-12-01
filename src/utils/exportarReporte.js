@@ -1,16 +1,36 @@
-import jsPDF from 'jspdf';
 
-export const generatePDF = (clientes, servicios) => {
+
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+
+ const generarYEnviarPDF = (servicio) => {
   const doc = new jsPDF();
-  doc.text('Reporte de Clientes y Servicios', 10, 10);
+  doc.text("Reporte de Servicio", 14, 20);
 
-  clientes.forEach((cliente, index) => {
-    doc.text(`Cliente ${index + 1}: ${cliente.nombre} ${cliente.apellido}`, 10, 20 + index * 10);
+  doc.autoTable({
+    startY: 30,
+    head: [["Campo", "Detalle"]],
+    body: [
+      ["Cliente", `${servicio.cliente.nombre} ${servicio.cliente.apellido}`],
+      ["Teléfono", servicio.cliente.telefono],
+      ["Detalle", servicio.detalle],
+      ["Costo", `$${servicio.costo}`],
+      ["Estado", servicio.estado],
+    ],
   });
 
-  servicios.forEach((servicio, index) => {
-    doc.text(`Servicio ${index + 1}: ${servicio.detalle}`, 10, 20 + clientes.length * 10 + index * 10);
-  });
+  doc.save(`Servicio_${servicio.id}.pdf`);
 
-  doc.save('reporte.pdf');
+  const mensaje = `
+  Servicio Técnico:
+  - Cliente: ${servicio.cliente.nombre} ${servicio.cliente.apellido}
+  - Teléfono: ${servicio.cliente.telefono}
+  - Detalle: ${servicio.detalle}
+  - Costo: $${servicio.costo}
+  - Estado: ${servicio.estado}
+  `;
+  const url = `https://wa.me/${servicio.cliente.telefono}?text=${encodeURIComponent(mensaje)}`;
+  window.open(url, "_blank");
 };
+
+export default generarYEnviarPDF;
