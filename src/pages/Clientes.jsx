@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabaseClient";
-import { useNavigate } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faUsers, faEdit, faTrash, faClock, faCheckCircle, faClipboardList, faPlus } from "@fortawesome/free-solid-svg-icons";
 import ClienteForm from "../componentes/ClienteForm";
 import NavMenu from "../componentes/NavMenu";
+import { useNavigate } from "react-router-dom";
 
 const Clientes = () => {
   const [clientes, setClientes] = useState([]);
@@ -10,7 +12,7 @@ const Clientes = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [clientesPerPage] = useState(5);
-  const [showForm, setShowForm] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const [editingCliente, setEditingCliente] = useState(null);
   const [notification, setNotification] = useState(null);
 
@@ -18,15 +20,38 @@ const Clientes = () => {
 
   const fetchClientes = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: clientesData, error: clientesError } = await supabase
         .from("cliente")
-        .select("*")
+        .select("id, nombre, apellido, dni, telefono")
         .eq("baja", false)
         .order("apellido", { ascending: true });
 
-      if (error) throw new Error("Error al cargar clientes.");
-      setClientes(data);
-      setFilteredClientes(data);
+      if (clientesError) throw new Error("Error al cargar clientes.");
+
+      const { data: serviciosData, error: serviciosError } = await supabase
+        .from("servicio")
+        .select("idCliente, estado");
+
+      if (serviciosError) throw new Error("Error al cargar servicios.");
+
+      const clientesConServicios = clientesData.map((cliente) => {
+        const serviciosCliente = serviciosData.filter(
+          (servicio) => servicio.idCliente === cliente.id
+        );
+        return {
+          ...cliente,
+          totalServicios: serviciosCliente.length,
+          serviciosPendientes: serviciosCliente.filter(
+            (servicio) => servicio.estado === "pendiente"
+          ).length,
+          serviciosFinalizados: serviciosCliente.filter(
+            (servicio) => servicio.estado === "finalizado"
+          ).length,
+        };
+      });
+
+      setClientes(clientesConServicios);
+      setFilteredClientes(clientesConServicios);
     } catch (error) {
       console.error(error.message);
       setNotification({ type: "error", message: error.message });
@@ -51,12 +76,12 @@ const Clientes = () => {
 
   const handleEdit = (cliente) => {
     setEditingCliente(cliente);
-    setShowForm(true);
+    setShowModal(true);
   };
 
-  const handleCloseForm = () => {
+  const handleCloseModal = () => {
     setEditingCliente(null);
-    setShowForm(false);
+    setShowModal(false);
   };
 
   useEffect(() => {
@@ -65,7 +90,7 @@ const Clientes = () => {
 
   useEffect(() => {
     if (notification) {
-      const timer = setTimeout(() => setNotification(null), 5000);
+      const timer = setTimeout(() => setNotification(null), 3000);
       return () => clearTimeout(timer);
     }
   }, [notification]);
@@ -86,7 +111,7 @@ const Clientes = () => {
       );
     });
     setFilteredClientes(filtrados);
-    setCurrentPage(1); // Reiniciar a la primera página tras el filtro
+    setCurrentPage(1);
   }, [searchQuery, clientes]);
 
   const indexOfLastCliente = currentPage * clientesPerPage;
@@ -99,13 +124,15 @@ const Clientes = () => {
   return (
     <div className="p-6 bg-base-100 min-h-screen">
       <NavMenu />
-      <h1 className="text-3xl font-bold text-center my-6">Gestión de Clientes</h1>
+      <h1 className="text-3xl font-bold text-center my-6 flex items-center justify-center space-x-2">
+        <FontAwesomeIcon icon={faUsers} className="text-blue-500" />
+        <span>Gestión de Clientes</span>
+      </h1>
 
       {notification && (
         <div
-          className={`alert ${
-            notification.type === "success" ? "alert-success" : "alert-error"
-          } shadow-lg`}
+          className={`alert ${notification.type === "success" ? "alert-success" : "alert-error"
+            } shadow-lg`}
         >
           <div>
             <span>{notification.message}</span>
@@ -116,25 +143,23 @@ const Clientes = () => {
       <div className="flex justify-center items-center mb-6 space-x-4">
         <input
           type="text"
-          placeholder="Buscar..."
+          placeholder="Buscar por nombre, apellido o DNI..."
           className="input input-bordered w-full max-w-xs"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
         <button
-          onClick={() => {
-            setEditingCliente(null);
-            setShowForm(true);
-          }}
-          className="btn btn-primary"
+          onClick={() => setShowModal(true)}
+          className="btn btn-primary flex items-center space-x-2"
         >
-          Nuevo Cliente
+          <FontAwesomeIcon icon={faPlus} />
+          <span>Nuevo Cliente</span>
         </button>
       </div>
 
       <div className="card bg-base-200 shadow-lg p-4 max-w-4xl mx-auto">
         <h2 className="text-xl font-semibold mb-4">Lista de Clientes</h2>
-        <div className="overflow-x-auto">
+        <div className="overflow-hidden">
           <table className="table w-full">
             <thead>
               <tr>
@@ -142,6 +167,7 @@ const Clientes = () => {
                 <th>Apellido</th>
                 <th>DNI</th>
                 <th>Teléfono</th>
+                <th>Servicios</th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -152,24 +178,40 @@ const Clientes = () => {
                   <td>{cliente.apellido}</td>
                   <td>{cliente.dni}</td>
                   <td>{cliente.telefono}</td>
-                  <td className="space-x-2">
+                  <td>
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-1 tooltip" data-tip="Servicios pendientes">
+                        <FontAwesomeIcon icon={faClock} className="text-yellow-500" />
+                        <span>{cliente.serviciosPendientes}</span>
+                      </div>
+                      <div className="flex items-center space-x-1 tooltip" data-tip="Servicios finalizados">
+                        <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
+                        <span>{cliente.serviciosFinalizados}</span>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td className="flex space-x-2 justify-center">
                     <button
                       onClick={() => handleEdit(cliente)}
-                      className="btn btn-warning btn-xs"
+                      className="tooltip"
+                      data-tip="Editar"
                     >
-                      Editar
+                      <FontAwesomeIcon icon={faEdit} className="text-yellow-500" />
                     </button>
                     <button
                       onClick={() => eliminarCliente(cliente.id)}
-                      className="btn btn-error btn-xs"
+                      className="tooltip"
+                      data-tip="Eliminar"
                     >
-                      Eliminar
+                      <FontAwesomeIcon icon={faTrash} className="text-red-500" />
                     </button>
                     <button
                       onClick={() => navigate(`/servicios/${cliente.id}`)}
-                      className="btn btn-info btn-xs"
+                      className="tooltip"
+                      data-tip="Ver Servicios"
                     >
-                      Servicios
+                      <FontAwesomeIcon icon={faClipboardList} className="text-blue-500" />
                     </button>
                   </td>
                 </tr>
@@ -191,16 +233,15 @@ const Clientes = () => {
         ))}
       </div>
 
-      {showForm && (
-        <div className="card bg-base-200 shadow-lg p-4 mt-6 max-w-4xl mx-auto">
-          <h2 className="text-xl font-semibold mb-4">
-            {editingCliente ? "Editar Cliente" : "Nuevo Cliente"}
-          </h2>
-          <ClienteForm
-            fetchClientes={fetchClientes}
-            cliente={editingCliente}
-            onClose={handleCloseForm}
-          />
+      {showModal && (
+        <div className="modal modal-open">
+          <div className="modal-box">
+            <ClienteForm
+              fetchClientes={fetchClientes}
+              cliente={editingCliente}
+              onClose={handleCloseModal}
+            />
+          </div>
         </div>
       )}
     </div>
