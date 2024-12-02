@@ -1,3 +1,4 @@
+
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -8,8 +9,8 @@ const NavMenu = () => {
 
   const handleSignOut = async () => {
     try {
-      await supabase.auth.signOut(); // Cerrar sesión en Supabase
-      navigate("/"); // Redirigir al usuario a la página de login
+      await supabase.auth.signOut(); // Cierra la sesión en Supabase
+      navigate("/"); // Redirige al login
     } catch (error) {
       console.error("Error al cerrar sesión:", error);
     }
@@ -19,12 +20,10 @@ const NavMenu = () => {
     <nav className="navbar bg-base-200 shadow-md p-4">
       {/* Menú de navegación */}
       <div className="flex-1">
-        <Link to="/" className="btn btn-ghost normal-case text-xl flex items-center space-x-2">
-          <span>Gestión ST</span>
+        <Link to="/clientes" className="btn btn-ghost normal-case text-xl">
+          Gestión ST
         </Link>
       </div>
-
-      {/* Opciones del menú */}
       <div className="flex-none">
         <ul className="menu menu-horizontal px-1">
           <li>

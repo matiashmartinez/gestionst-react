@@ -1,21 +1,44 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Login from './pages/Login';
-import Clientes from './pages/Clientes';
-import Servicios from './pages/Servicios';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Login from "./pages/Login";
+import Clientes from "./pages/Clientes";
+import Servicios from "./pages/Servicios";
 
-import '../src/index.css';
+import ProtectedRoute from "./ProtectedRoute";
+
+
 function App() {
-
-
-
   return (
     <BrowserRouter>
-      
+    
       <Routes>
+        {/* Ruta pública */}
         <Route path="/" element={<Login />} />
-        <Route path="/clientes" element={<Clientes />} />
-        <Route path="/servicios" element={<Servicios />} />
-        <Route path="/servicios/:clienteId" element={<Servicios />} />
+
+        {/* Rutas protegidas */}
+        <Route
+          path="/clientes"
+          element={
+            <ProtectedRoute>
+              <Clientes />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/servicios"
+          element={
+            <ProtectedRoute>
+              <Servicios />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/servicios/:clienteId"
+          element={
+            <ProtectedRoute>
+              <Servicios />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
