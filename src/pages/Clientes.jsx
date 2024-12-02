@@ -30,10 +30,12 @@ const Clientes = () => {
 
       const { data: serviciosData, error: serviciosError } = await supabase
         .from("servicio")
-        .select("idCliente, estado");
+        .select("idCliente, estado, baja")
+        .eq("baja", false); // Filtramos servicios no dados de baja
 
       if (serviciosError) throw new Error("Error al cargar servicios.");
 
+      // Mapeamos clientes con servicios
       const clientesConServicios = clientesData.map((cliente) => {
         const serviciosCliente = serviciosData.filter(
           (servicio) => servicio.idCliente === cliente.id

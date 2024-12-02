@@ -108,20 +108,20 @@ const ServicioForm = ({ fetchServicios, onClose, initialData, setNotification })
 
       <div className="form-control">
         <label className="label">
-          <span className="label-text">Fecha de Ingreso</span>
+          <span className="label-text font-bold text-gray-700">Fecha de Ingreso</span>
         </label>
         <input
           type="date"
           name="fecha_in"
           value={formData.fecha_in || ""}
-          className="input input-bordered"
+          className="input input-bordered bg-gray-100 cursor-not-allowed"
           readOnly // Campo de solo lectura
         />
       </div>
 
       <div className="form-control">
         <label className="label">
-          <span className="label-text">Fecha de Entrega</span>
+          <span className="label-text font-bold text-gray-700">Fecha de Entrega</span>
         </label>
         <input
           type="date"
@@ -135,7 +135,7 @@ const ServicioForm = ({ fetchServicios, onClose, initialData, setNotification })
 
       <div className="form-control">
         <label className="label">
-          <span className="label-text">Detalle</span>
+          <span className="label-text font-bold text-gray-700">Detalle</span>
         </label>
         <textarea
           name="detalle"
@@ -149,7 +149,7 @@ const ServicioForm = ({ fetchServicios, onClose, initialData, setNotification })
 
       <div className="form-control">
         <label className="label">
-          <span className="label-text">Costo</span>
+          <span className="label-text font-bold text-gray-700">Costo</span>
         </label>
         <input
           type="text"
@@ -164,7 +164,7 @@ const ServicioForm = ({ fetchServicios, onClose, initialData, setNotification })
 
       <div className="form-control">
         <label className="label">
-          <span className="label-text">Número de Factura</span>
+          <span className="label-text font-bold text-gray-700">Número de Factura</span>
         </label>
         <input
           type="text"
@@ -178,12 +178,12 @@ const ServicioForm = ({ fetchServicios, onClose, initialData, setNotification })
 
       <div className="form-control">
         <label className="label">
-          <span className="label-text">Cliente</span>
+          <span className="label-text font-bold text-gray-700">Cliente</span>
         </label>
         {initialData ? (
-          <div className="input input-bordered bg-gray-100">
-            {initialData.clienteNombre} {initialData.clienteApellido} - {initialData.clienteDni}
-          </div>
+          <div className="bg-gray-100/80 text-gray-600 font-semibold cursor-not-allowed p-2 rounded">
+          {initialData.clienteNombre} {initialData.clienteApellido} - {initialData.clienteDni}
+        </div>
         ) : (
           <>
             <input
