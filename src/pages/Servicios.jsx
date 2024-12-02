@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {  faClipboardList, faPlus } from "@fortawesome/free-solid-svg-icons";
 import {
   faClock,
   faCog,
@@ -209,7 +210,10 @@ const Servicios = () => {
   return (
     <div className="p-6 bg-base-100 min-h-screen">
       <NavMenu />
-      <h1 className="text-2xl font-bold text-center mb-8">Gestionar Servicios</h1>
+      <h1 className="text-3xl font-bold text-center my-6 flex items-center justify-center space-x-2">
+  <FontAwesomeIcon icon={faClipboardList} className="text-green-500" />
+  <span>Gestión de Servicios</span>
+</h1>
 
       {notification && (
         <div className="alert alert-info shadow-lg mb-4 max-w-lg mx-auto">
@@ -239,9 +243,13 @@ const Servicios = () => {
             onChange={(e) => setSearchQuery(e.target.value.toLowerCase())}
           />
         </div>
-        <button className="btn btn-primary" onClick={handleAdd}>
-          Nuevo Servicio
-        </button>
+        <button
+  onClick={handleAdd}
+  className="btn btn-primary flex items-center space-x-2"
+>
+  <FontAwesomeIcon icon={faPlus} />
+  <span>Nuevo Servicio</span>
+</button>
       </div>
 
       <div className="overflow-x-auto mx-auto max-w-screen-lg mt-8">
