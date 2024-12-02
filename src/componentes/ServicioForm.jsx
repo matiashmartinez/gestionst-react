@@ -2,11 +2,11 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient";
 import PropTypes from "prop-types";
 
-const ServicioForm = ({ fetchServicios, onClose, initialData }) => {
+const ServicioForm = ({ fetchServicios, onClose, initialData, setNotification }) => {
   const [clientes, setClientes] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [formData, setFormData] = useState({
-    fecha_in: new Date().toISOString().split("T")[0], // Fecha de ingreso predeterminada
+    fecha_in: new Date().toISOString().split("T")[0], // Fecha actual por defecto
     fecha_es: "",
     detalle: "",
     costo: "",
@@ -14,24 +14,26 @@ const ServicioForm = ({ fetchServicios, onClose, initialData }) => {
     idCliente: "",
     estado: "pendiente",
   });
-  const [notification, setNotification] = useState(null);
 
+  // Actualizar formData al recibir initialData (edición)
   useEffect(() => {
     if (initialData) {
-      setFormData({
+      setFormData((prevFormData) => ({
+        ...prevFormData,
         ...initialData,
-        fecha_in: initialData.fecha_in || "", // Mantener `fecha_in` fija
-      });
+        fecha_in: new Date().toISOString().split("T")[0], // Actualizamos a la fecha actual al editar
+      }));
     }
   }, [initialData]);
 
+  // Cargar lista de clientes
   useEffect(() => {
     const fetchClientes = async () => {
       const { data, error } = await supabase
         .from("cliente")
-        .select("id, dni, nombre, apellido, created_at")
+        .select("id, dni, nombre, apellido")
         .eq("baja", false)
-        .order("created_at", { ascending: false });
+        .order("apellido", { ascending: true });
 
       if (error) {
         console.error("Error al cargar clientes:", error.message);
@@ -43,11 +45,10 @@ const ServicioForm = ({ fetchServicios, onClose, initialData }) => {
   }, []);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -59,35 +60,39 @@ const ServicioForm = ({ fetchServicios, onClose, initialData }) => {
     }
 
     try {
-      const dataToSend = {
-        ...formData,
-        fecha_in: undefined, // Excluir `fecha_in` de los datos enviados
-      };
-
       if (initialData) {
-        // Editar servicio existente
+        // Editar servicio
         const { error } = await supabase
           .from("servicio")
-          .update(dataToSend)
+          .update({
+            fecha_es: formData.fecha_es,
+            detalle: formData.detalle,
+            costo: formData.costo,
+            num_factura: formData.num_factura,
+            idCliente: formData.idCliente,
+            estado: formData.estado,
+            fecha_in: new Date().toISOString().split("T")[0], // Fecha actual al editar
+          })
           .eq("idServicio", initialData.idServicio);
 
-        if (error) throw error;
+        if (error) throw new Error("Error al editar el servicio.");
       } else {
-        // Crear nuevo servicio
+        // Agregar servicio
         const { error } = await supabase.from("servicio").insert([formData]);
 
-        if (error) throw error;
+        if (error) throw new Error("Error al agregar el servicio.");
       }
 
       setNotification({ type: "success", message: "Servicio guardado exitosamente." });
       fetchServicios();
-      onClose();
+      onClose(); // Cerrar modal tras éxito
     } catch (error) {
-      console.error("Error al guardar el servicio:", error.message);
-      setNotification({ type: "error", message: "Error al guardar el servicio." });
+      console.error("Error al guardar servicio:", error.message);
+      setNotification({ type: "error", message: `Error: ${error.message}` });
     }
   };
 
+  // Filtrar clientes por búsqueda
   const filteredClientes = clientes.filter(
     (cliente) =>
       cliente.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -95,47 +100,28 @@ const ServicioForm = ({ fetchServicios, onClose, initialData }) => {
       cliente.dni.includes(searchQuery)
   );
 
-  useEffect(() => {
-    if (notification) {
-      const timer = setTimeout(() => setNotification(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [notification]);
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <h3 className="text-xl font-bold mb-4 text-center">
         {initialData ? "Editar Servicio" : "Agregar Servicio"}
       </h3>
 
-      {notification && (
-        <div
-          className={`alert shadow-lg ${
-            notification.type === "error" ? "alert-error" : "alert-success"
-          }`}
-        >
-          <span>{notification.message}</span>
-        </div>
-      )}
-
-      {/* Fecha de ingreso (no editable) */}
       <div className="form-control">
         <label className="label">
           <span className="label-text">Fecha de Ingreso</span>
         </label>
         <input
-          type="text"
+          type="date"
           name="fecha_in"
-          value={formData.fecha_in}
+          value={formData.fecha_in || ""}
           className="input input-bordered"
-          readOnly
+          readOnly // Campo de solo lectura
         />
       </div>
 
-      {/* Fecha estimada */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text">Fecha Estimada</span>
+          <span className="label-text">Fecha de Entrega</span>
         </label>
         <input
           type="date"
@@ -147,7 +133,6 @@ const ServicioForm = ({ fetchServicios, onClose, initialData }) => {
         />
       </div>
 
-      {/* Detalle */}
       <div className="form-control">
         <label className="label">
           <span className="label-text">Detalle</span>
@@ -162,13 +147,12 @@ const ServicioForm = ({ fetchServicios, onClose, initialData }) => {
         ></textarea>
       </div>
 
-      {/* Costo */}
       <div className="form-control">
         <label className="label">
           <span className="label-text">Costo</span>
         </label>
         <input
-          type="number"
+          type="text"
           name="costo"
           value={formData.costo}
           onChange={handleChange}
@@ -178,7 +162,6 @@ const ServicioForm = ({ fetchServicios, onClose, initialData }) => {
         />
       </div>
 
-      {/* Número de Factura */}
       <div className="form-control">
         <label className="label">
           <span className="label-text">Número de Factura</span>
@@ -193,53 +176,61 @@ const ServicioForm = ({ fetchServicios, onClose, initialData }) => {
         />
       </div>
 
-      {/* Buscar Cliente */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text">Seleccionar Cliente</span>
+          <span className="label-text">Cliente</span>
         </label>
-        <input
-          type="text"
-          placeholder="Buscar por nombre, apellido o DNI"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="input input-bordered"
-        />
-        <div className="overflow-x-auto mt-2">
-          <table className="table w-full">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Apellido</th>
-                <th>DNI</th>
-                <th>Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredClientes.map((cliente) => (
-                <tr key={cliente.id}>
-                  <td>{cliente.nombre}</td>
-                  <td>{cliente.apellido}</td>
-                  <td>{cliente.dni}</td>
-                  <td>
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, idCliente: cliente.id })}
-                      className={`btn btn-sm ${
-                        formData.idCliente === cliente.id ? "btn-success" : "btn-primary"
-                      }`}
-                    >
-                      {formData.idCliente === cliente.id ? "Seleccionado" : "Seleccionar"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {initialData ? (
+          <div className="input input-bordered bg-gray-100">
+            {initialData.clienteNombre} {initialData.clienteApellido} - {initialData.clienteDni}
+          </div>
+        ) : (
+          <>
+            <input
+              type="text"
+              placeholder="Buscar por nombre, apellido o DNI"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="input input-bordered"
+            />
+            <div className="overflow-x-auto mt-2">
+              <table className="table w-full">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Apellido</th>
+                    <th>DNI</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredClientes.map((cliente) => (
+                    <tr key={cliente.id}>
+                      <td>{cliente.nombre}</td>
+                      <td>{cliente.apellido}</td>
+                      <td>{cliente.dni}</td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData({ ...formData, idCliente: cliente.id })
+                          }
+                          className={`btn btn-sm ${
+                            formData.idCliente === cliente.id ? "btn-success" : "btn-primary"
+                          }`}
+                        >
+                          {formData.idCliente === cliente.id ? "Seleccionado" : "Seleccionar"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Botones */}
       <div className="flex justify-end space-x-4">
         <button type="button" onClick={onClose} className="btn btn-ghost">
           Cancelar
@@ -255,6 +246,7 @@ const ServicioForm = ({ fetchServicios, onClose, initialData }) => {
 ServicioForm.propTypes = {
   fetchServicios: PropTypes.func.isRequired,
   onClose: PropTypes.func.isRequired,
+  setNotification: PropTypes.func.isRequired,
   initialData: PropTypes.shape({
     idServicio: PropTypes.number,
     fecha_in: PropTypes.string,
@@ -263,6 +255,9 @@ ServicioForm.propTypes = {
     costo: PropTypes.string,
     num_factura: PropTypes.string,
     idCliente: PropTypes.number,
+    clienteNombre: PropTypes.string,
+    clienteApellido: PropTypes.string,
+    clienteDni: PropTypes.string,
     estado: PropTypes.string,
   }),
 };

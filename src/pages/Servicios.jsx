@@ -82,6 +82,14 @@ const Servicios = () => {
     fetchServicios();
   }, [fetchServicios]);
 
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
   useEffect(() => {
     const query = searchQuery.toLowerCase();
     const filtrados = servicios.filter((servicio) => {
@@ -133,7 +141,12 @@ const Servicios = () => {
   };
 
   const handleEdit = (servicio) => {
-    setEditingService(servicio);
+    setEditingService({
+      ...servicio,
+      clienteNombre: servicio.cliente.nombre,
+      clienteApellido: servicio.cliente.apellido,
+      clienteDni: servicio.cliente.dni,
+    });
     setShowModal(true);
   };
 
@@ -269,13 +282,12 @@ const Servicios = () => {
                     {servicio.cliente.nombre} {servicio.cliente.apellido}
                   </td>
                   <td
-                    className={`${
-                      status === "atrasado"
+                    className={`${status === "atrasado"
                         ? "text-red-500 font-bold"
                         : status === "urgente"
-                        ? "text-yellow-500 font-semibold"
-                        : "text-green-500"
-                    }`}
+                          ? "text-yellow-500 font-semibold"
+                          : "text-green-500"
+                      }`}
                   >
                     {days < 0 ? `Atrasado (${Math.abs(days)} días)` : `${days} días`}
                   </td>
@@ -286,16 +298,15 @@ const Servicios = () => {
                         servicio.estado === "pendiente"
                           ? faClock
                           : servicio.estado === "en progreso"
-                          ? faCog
-                          : faCheckCircle
+                            ? faCog
+                            : faCheckCircle
                       }
-                      className={`${
-                        servicio.estado === "pendiente"
+                      className={`${servicio.estado === "pendiente"
                           ? "text-gray-500"
                           : servicio.estado === "en progreso"
-                          ? "text-yellow-500"
-                          : "text-green-500"
-                      }`}
+                            ? "text-yellow-500"
+                            : "text-green-500"
+                        }`}
                     />
                   </td>
                   <td className="flex justify-center space-x-2">
@@ -352,6 +363,7 @@ const Servicios = () => {
               fetchServicios={fetchServicios}
               onClose={() => setShowModal(false)}
               initialData={editingService}
+              setNotification={setNotification}
             />
           </div>
         </div>
@@ -393,7 +405,9 @@ const Servicios = () => {
           </div>
         </div>
       )}
+   
     </div>
+
   );
 };
 
