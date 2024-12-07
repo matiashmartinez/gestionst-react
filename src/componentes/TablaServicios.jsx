@@ -39,6 +39,7 @@ const TablaServicios = ({
                             icon={faSort}
                             onClick={() => onSort("fecha_in")}
                             className="cursor-pointer"
+                            title="Ordenar por fecha de ingreso"
                         />
                         {getSortIcon("fecha_in")}
                     </th>
@@ -50,6 +51,7 @@ const TablaServicios = ({
                             icon={faSort}
                             onClick={() => onSort("fecha_es")}
                             className="cursor-pointer"
+                            title="Ordenar por días restantes"
                         />
                         {getSortIcon("fecha_es")}
                     </th>
@@ -80,6 +82,11 @@ const TablaServicios = ({
                                                 ? "text-green-500 font-bold"
                                                 : "text-gray-500"
                                     }`}
+                                title={status === "finalizado" 
+                                    ? "El servicio está finalizado" 
+                                    : days < 0 
+                                    ? `Atrasado (${Math.abs(days)} días)` 
+                                    : `${days} días restantes`}
                             >
                                 {status === "finalizado"
                                     ? "Finalizado"
@@ -88,7 +95,7 @@ const TablaServicios = ({
                                         : `${days} días`}
                             </td>
                             <td>{formatFecha(servicio.fecha_es)}</td>
-                            <td> 
+                            <td>
                                 <FontAwesomeIcon
                                     icon={
                                         servicio.estado === "pendiente"
@@ -103,10 +110,20 @@ const TablaServicios = ({
                                                 ? "text-yellow-500"
                                                 : "text-green-500"
                                         }`}
+                                    title={`Estado: ${
+                                        servicio.estado === "pendiente"
+                                            ? "Pendiente"
+                                            : servicio.estado === "en progreso"
+                                                ? "En progreso"
+                                                : "Finalizado"
+                                    }`}
                                 />
                             </td>
                             <td className="flex justify-center space-x-4">
-                                <button onClick={() => onViewDetails(servicio)}>
+                                <button
+                                    onClick={() => onViewDetails(servicio)}
+                                    title="Ver detalles del servicio"
+                                >
                                     <FontAwesomeIcon icon={faEye} />
                                 </button>
                                 <button
@@ -118,6 +135,11 @@ const TablaServicios = ({
                                                 : "finalizado"
                                         )
                                     }
+                                    title={
+                                        servicio.estado === "finalizado"
+                                            ? "Marcar como pendiente"
+                                            : "Finalizar servicio"
+                                    }
                                 >
                                     <FontAwesomeIcon
                                         icon={
@@ -127,13 +149,22 @@ const TablaServicios = ({
                                         }
                                     />
                                 </button>
-                                <button onClick={() => onEdit(servicio)}>
+                                <button
+                                    onClick={() => onEdit(servicio)}
+                                    title="Editar servicio"
+                                >
                                     <FontAwesomeIcon icon={faEdit} />
                                 </button>
-                                <button onClick={() => onDelete(servicio.idServicio)}>
+                                <button
+                                    onClick={() => onDelete(servicio.idServicio)}
+                                    title="Eliminar servicio"
+                                >
                                     <FontAwesomeIcon icon={faTrash} />
                                 </button>
-                                <button onClick={() => onGeneratePDF(servicio)}>
+                                <button
+                                    onClick={() => onGeneratePDF(servicio)}
+                                    title="Generar reporte en PDF"
+                                >
                                     <FontAwesomeIcon icon={faFilePdf} />
                                 </button>
                             </td>
@@ -170,6 +201,5 @@ TablaServicios.propTypes = {
         direction: PropTypes.string,
     }),
 };
-
 
 export default TablaServicios;
