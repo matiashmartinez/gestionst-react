@@ -44,7 +44,7 @@ const ServicioForm = ({ fetchServicios, onClose, initialData, setNotification })
           query = query.or(filters.join(","));
         }
 
-        query = query.order("created_at", { ascending: false }).limit(10); // Limitar a 10 resultados
+        query = query.order("created_at", { ascending: false }).limit(5); // Limitar a 10 resultados
 
         const { data, error } = await query;
 
