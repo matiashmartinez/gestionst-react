@@ -15,34 +15,49 @@ const ServicioForm = ({ fetchServicios, onClose, initialData, setNotification })
     estado: "pendiente",
   });
 
-  // Actualizar formData al recibir initialData (edición)
   useEffect(() => {
     if (initialData) {
       setFormData((prevFormData) => ({
         ...prevFormData,
         ...initialData,
-        fecha_in: new Date().toISOString().split("T")[0], // Actualizamos a la fecha actual al editar
+        fecha_in: new Date().toISOString().split("T")[0],
       }));
     }
   }, [initialData]);
 
-  // Cargar lista de clientes
   useEffect(() => {
     const fetchClientes = async () => {
-      const { data, error } = await supabase
-        .from("cliente")
-        .select("id, dni, nombre, apellido")
-        .eq("baja", false)
-        .order("apellido", { ascending: true });
+      try {
+        let query = supabase
+          .from("cliente")
+          .select("id, dni, nombre, apellido, created_at")
+          .eq("baja", false);
 
-      if (error) {
-        console.error("Error al cargar clientes:", error.message);
-      } else {
+        if (searchQuery.trim()) {
+          const terms = searchQuery.trim().toLowerCase().split(/\s+/);
+          const filters = terms.map(
+            (term) =>
+              `nombre.ilike.%${term}%` +
+              `,apellido.ilike.%${term}%` +
+              `,dni.ilike.%${term}%`
+          );
+          query = query.or(filters.join(","));
+        }
+
+        query = query.order("created_at", { ascending: false }).limit(10); // Limitar a 10 resultados
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+
         setClientes(data);
+      } catch (error) {
+        console.error("Error al buscar clientes:", error.message);
       }
     };
+
     fetchClientes();
-  }, []);
+  }, [searchQuery]);
 
   const handleChange = (e) => {
     setFormData({
@@ -61,7 +76,6 @@ const ServicioForm = ({ fetchServicios, onClose, initialData, setNotification })
 
     try {
       if (initialData) {
-        // Editar servicio
         const { error } = await supabase
           .from("servicio")
           .update({
@@ -71,34 +85,24 @@ const ServicioForm = ({ fetchServicios, onClose, initialData, setNotification })
             num_factura: formData.num_factura,
             idCliente: formData.idCliente,
             estado: formData.estado,
-            fecha_in: new Date().toISOString().split("T")[0], // Fecha actual al editar
+            fecha_in: new Date().toISOString().split("T")[0],
           })
           .eq("idServicio", initialData.idServicio);
 
         if (error) throw new Error("Error al editar el servicio.");
       } else {
-        // Agregar servicio
         const { error } = await supabase.from("servicio").insert([formData]);
-
         if (error) throw new Error("Error al agregar el servicio.");
       }
 
       setNotification({ type: "success", message: "Servicio guardado exitosamente." });
       fetchServicios();
-      onClose(); // Cerrar modal tras éxito
+      onClose();
     } catch (error) {
       console.error("Error al guardar servicio:", error.message);
       setNotification({ type: "error", message: `Error: ${error.message}` });
     }
   };
-
-  // Filtrar clientes por búsqueda
-  const filteredClientes = clientes.filter(
-    (cliente) =>
-      cliente.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      cliente.apellido.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      cliente.dni.includes(searchQuery)
-  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -115,7 +119,7 @@ const ServicioForm = ({ fetchServicios, onClose, initialData, setNotification })
           name="fecha_in"
           value={formData.fecha_in || ""}
           className="input input-bordered bg-gray-100 cursor-not-allowed"
-          readOnly // Campo de solo lectura
+          readOnly
         />
       </div>
 
@@ -182,8 +186,8 @@ const ServicioForm = ({ fetchServicios, onClose, initialData, setNotification })
         </label>
         {initialData ? (
           <div className="bg-gray-100/80 text-gray-600 font-semibold cursor-not-allowed p-2 rounded">
-          {initialData.clienteNombre} {initialData.clienteApellido} - {initialData.clienteDni}
-        </div>
+            {initialData.clienteNombre} {initialData.clienteApellido} - {initialData.clienteDni}
+          </div>
         ) : (
           <>
             <input
@@ -193,23 +197,23 @@ const ServicioForm = ({ fetchServicios, onClose, initialData, setNotification })
               onChange={(e) => setSearchQuery(e.target.value)}
               className="input input-bordered"
             />
-            <div className="overflow-x-auto mt-2">
-              <table className="table w-full">
+            <div className="overflow-y-auto max-h-[200px] mt-2 border border-gray-300 rounded">
+              <table className="table w-full text-sm">
                 <thead>
                   <tr>
-                    <th>Nombre</th>
-                    <th>Apellido</th>
-                    <th>DNI</th>
-                    <th>Acción</th>
+                    <th className="py-1 px-2">Nombre</th>
+                    <th className="py-1 px-2">Apellido</th>
+                    <th className="py-1 px-2">DNI</th>
+                    <th className="py-1 px-2">Acción</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredClientes.map((cliente) => (
+                  {clientes.map((cliente) => (
                     <tr key={cliente.id}>
-                      <td>{cliente.nombre}</td>
-                      <td>{cliente.apellido}</td>
-                      <td>{cliente.dni}</td>
-                      <td>
+                      <td className="py-1 px-2">{cliente.nombre}</td>
+                      <td className="py-1 px-2">{cliente.apellido}</td>
+                      <td className="py-1 px-2">{cliente.dni}</td>
+                      <td className="py-1 px-2">
                         <button
                           type="button"
                           onClick={() =>
@@ -229,6 +233,22 @@ const ServicioForm = ({ fetchServicios, onClose, initialData, setNotification })
             </div>
           </>
         )}
+      </div>
+
+      <div className="form-control">
+        <label className="label">
+          <span className="label-text font-bold text-gray-700">Estado</span>
+        </label>
+        <select
+          name="estado"
+          value={formData.estado}
+          onChange={handleChange}
+          className="select select-bordered"
+        >
+          <option value="pendiente">Pendiente</option>
+          <option value="en progreso">En Progreso</option>
+          <option value="finalizado">Finalizado</option>
+        </select>
       </div>
 
       <div className="flex justify-end space-x-4">
