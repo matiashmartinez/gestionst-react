@@ -2,46 +2,27 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {  faClipboardList, faPlus } from "@fortawesome/free-solid-svg-icons";
-import {
-  faClock,
-  faCog,
-  faCheckCircle,
-  faEdit,
-  faTrash,
-  faFilePdf,
-  faEye,
-  faSort,
-} from "@fortawesome/free-solid-svg-icons";
+import { faClipboardList, faPlus } from "@fortawesome/free-solid-svg-icons";
 import NavMenu from "../componentes/NavMenu";
 import ServicioForm from "../componentes/ServicioForm";
 import generarYEnviarPDF from "../utils/exportarReporte";
-
-// Utilidad para formatear fechas
-const formatFecha = (fecha) => {
-  if (!fecha) return "-";
-  const date = new Date(fecha);
-  return new Intl.DateTimeFormat("es-ES", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(date);
-};
+import TablaServicios from "../componentes/TablaServicios";
 
 const Servicios = () => {
   const { clienteId } = useParams();
-
   const [servicios, setServicios] = useState([]);
   const [filteredServicios, setFilteredServicios] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [modalDetails, setModalDetails] = useState(null);
   const [editingService, setEditingService] = useState(null);
   const [mostrarTodos, setMostrarTodos] = useState(!clienteId);
-  const [selectedCliente] = useState(clienteId || "");
   const [searchQuery, setSearchQuery] = useState("");
   const [notification, setNotification] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortConfig, setSortConfig] = useState({ key: "fecha_in", direction: "desc" });
+  const [sortConfig, setSortConfig] = useState({
+    key: "fecha_in",
+    direction: "desc",
+  });
   const serviciosPerPage = 5;
 
   const fetchServicios = useCallback(async () => {
@@ -61,8 +42,8 @@ const Servicios = () => {
         `)
         .eq("baja", false);
 
-      if (!mostrarTodos && selectedCliente) {
-        query = query.eq("idCliente", selectedCliente);
+      if (!mostrarTodos && clienteId) {
+        query = query.eq("idCliente", clienteId);
       }
 
       const { data, error } = await query;
@@ -77,12 +58,11 @@ const Servicios = () => {
     } catch (error) {
       setNotification({ type: "error", message: error.message });
     }
-  }, [mostrarTodos, selectedCliente]);
+  }, [mostrarTodos, clienteId]);
 
   useEffect(() => {
     fetchServicios();
   }, [fetchServicios]);
-
 
   useEffect(() => {
     if (notification) {
@@ -114,7 +94,8 @@ const Servicios = () => {
   }, [searchQuery, servicios]);
 
   const handleSort = (key) => {
-    const direction = sortConfig.key === key && sortConfig.direction === "asc" ? "desc" : "asc";
+    const direction =
+      sortConfig.key === key && sortConfig.direction === "asc" ? "desc" : "asc";
     setSortConfig({ key, direction });
 
     const sortedData = [...filteredServicios].sort((a, b) => {
@@ -124,16 +105,6 @@ const Servicios = () => {
     });
 
     setFilteredServicios(sortedData);
-  };
-
-  const calculateDaysRemaining = (fecha_es) => {
-    const today = new Date();
-    const estimatedDate = new Date(fecha_es);
-    const daysDiff = Math.ceil((estimatedDate - today) / (1000 * 60 * 60 * 24));
-
-    if (daysDiff < 0) return { days: daysDiff, status: "atrasado" };
-    if (daysDiff <= 3) return { days: daysDiff, status: "urgente" };
-    return { days: daysDiff, status: "normal" };
   };
 
   const handleAdd = () => {
@@ -166,7 +137,10 @@ const Servicios = () => {
 
       if (error) throw new Error("No se pudo eliminar el servicio.");
 
-      setNotification({ type: "success", message: "Servicio eliminado correctamente." });
+      setNotification({
+        type: "success",
+        message: "Servicio eliminado correctamente.",
+      });
       fetchServicios();
     } catch (err) {
       setNotification({ type: "error", message: err.message });
@@ -184,10 +158,15 @@ const Servicios = () => {
 
       setServicios((prevServicios) =>
         prevServicios.map((servicio) =>
-          servicio.idServicio === idServicio ? { ...servicio, estado: nuevoEstado } : servicio
+          servicio.idServicio === idServicio
+            ? { ...servicio, estado: nuevoEstado }
+            : servicio
         )
       );
-      setNotification({ type: "success", message: "Estado actualizado correctamente." });
+      setNotification({
+        type: "success",
+        message: "Estado actualizado correctamente.",
+      });
     } catch (err) {
       setNotification({ type: "error", message: err.message });
     }
@@ -195,25 +174,21 @@ const Servicios = () => {
 
   const indexOfLastServicio = currentPage * serviciosPerPage;
   const indexOfFirstServicio = indexOfLastServicio - serviciosPerPage;
-  const currentServicios = filteredServicios.slice(indexOfFirstServicio, indexOfLastServicio);
+  const currentServicios = filteredServicios.slice(
+    indexOfFirstServicio,
+    indexOfLastServicio
+  );
 
   const totalPages = Math.ceil(filteredServicios.length / serviciosPerPage);
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
-
-  useEffect(() => {
-    if (notification) {
-      const timer = setTimeout(() => setNotification(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [notification]);
 
   return (
     <div className="p-6 bg-base-100 min-h-screen">
       <NavMenu />
       <h1 className="text-3xl font-bold text-center my-6 flex items-center justify-center space-x-2">
-  <FontAwesomeIcon icon={faClipboardList} className="text-green-500" />
-  <span>Gestión de Servicios</span>
-</h1>
+        <FontAwesomeIcon icon={faClipboardList} className="text-green-500" />
+        <span>Gestión de Servicios</span>
+      </h1>
 
       {notification && (
         <div className="alert alert-info shadow-lg mb-4 max-w-lg mx-auto">
@@ -231,7 +206,11 @@ const Servicios = () => {
             checked={mostrarTodos}
             onChange={(e) => setMostrarTodos(e.target.checked)}
           />
-          <span>{mostrarTodos ? "Ver Todos los Servicios" : "Ver Servicios del Cliente"}</span>
+          <span>
+            {mostrarTodos
+              ? "Ver Todos los Servicios"
+              : "Ver Servicios del Cliente"}
+          </span>
         </label>
 
         <div className="form-control w-full max-w-xs">
@@ -244,113 +223,24 @@ const Servicios = () => {
           />
         </div>
         <button
-  onClick={handleAdd}
-  className="btn btn-primary flex items-center space-x-2"
->
-  <FontAwesomeIcon icon={faPlus} />
-  <span>Nuevo Servicio</span>
-</button>
+          onClick={handleAdd}
+          className="btn btn-primary flex items-center space-x-2"
+        >
+          <FontAwesomeIcon icon={faPlus} />
+          <span>Nuevo Servicio</span>
+        </button>
       </div>
 
-      <div className="overflow-x-auto mx-auto max-w-screen-lg mt-8">
-        <table className="table w-full">
-          <thead>
-            <tr>
-              <th>
-                Fecha Ingreso{" "}
-                <FontAwesomeIcon
-                  icon={faSort}
-                  onClick={() => handleSort("fecha_in")}
-                  className="cursor-pointer"
-                />
-              </th>
-              <th>Detalle</th>
-              <th>Cliente</th>
-              <th>
-                Días Restantes{" "}
-                <FontAwesomeIcon
-                  icon={faSort}
-                  onClick={() => handleSort("fecha_es")}
-                  className="cursor-pointer"
-                />
-              </th>
-              <th>Fecha Estimada</th>
-              <th>Estado</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentServicios.map((servicio) => {
-              const { days, status } = calculateDaysRemaining(servicio.fecha_es);
-              return (
-                <tr key={servicio.idServicio}>
-                  <td>{formatFecha(servicio.fecha_in)}</td>
-                  <td>{servicio.detalle}</td>
-                  <td>
-                    {servicio.cliente.nombre} {servicio.cliente.apellido}
-                  </td>
-                  <td
-                    className={`${status === "atrasado"
-                        ? "text-red-500 font-bold"
-                        : status === "urgente"
-                          ? "text-yellow-500 font-semibold"
-                          : "text-green-500"
-                      }`}
-                  >
-                    {days < 0 ? `Atrasado (${Math.abs(days)} días)` : `${days} días`}
-                  </td>
-                  <td>{formatFecha(servicio.fecha_es)}</td>
-                  <td>
-                    <FontAwesomeIcon
-                      icon={
-                        servicio.estado === "pendiente"
-                          ? faClock
-                          : servicio.estado === "en progreso"
-                            ? faCog
-                            : faCheckCircle
-                      }
-                      className={`${servicio.estado === "pendiente"
-                          ? "text-gray-500"
-                          : servicio.estado === "en progreso"
-                            ? "text-yellow-500"
-                            : "text-green-500"
-                        }`}
-                    />
-                  </td>
-                  <td className="flex justify-center space-x-2">
-                    <button onClick={() => handleViewDetails(servicio)}>
-                      <FontAwesomeIcon icon={faEye} title="Ver Detalles" className="text-gray-500" />
-                    </button>
-                    <button
-                      onClick={() =>
-                        cambiarEstado(
-                          servicio.idServicio,
-                          servicio.estado === "finalizado" ? "pendiente" : "finalizado"
-                        )
-                      }
-                    >
-                      <FontAwesomeIcon
-                        icon={servicio.estado === "finalizado" ? faClock : faCheckCircle}
-                        title={servicio.estado === "finalizado" ? "Marcar Pendiente" : "Finalizar"}
-                        className="text-blue-500"
-                      />
-                    </button>
-                    <button onClick={() => handleEdit(servicio)}>
-                      <FontAwesomeIcon icon={faEdit} title="Editar" className="text-yellow-500" />
-                    </button>
-                    <button onClick={() => handleDelete(servicio.idServicio)}>
-                      <FontAwesomeIcon icon={faTrash} title="Eliminar" className="text-red-500" />
-                    </button>
-                    <button onClick={() => generarYEnviarPDF(servicio)}>
-                      <FontAwesomeIcon icon={faFilePdf} title="PDF" className="text-green-500" />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <TablaServicios
+        servicios={currentServicios}
+        onSort={handleSort}
+        onViewDetails={handleViewDetails}
+        onChangeState={cambiarEstado}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onGeneratePDF={generarYEnviarPDF}
+        sortConfig={sortConfig}
+      />
 
       <div className="mt-6 flex justify-center space-x-2">
         {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
@@ -385,16 +275,19 @@ const Servicios = () => {
               <strong>Detalle:</strong> {modalDetails.detalle}
             </p>
             <p>
-              <strong>Cliente:</strong> {modalDetails.cliente.nombre} {modalDetails.cliente.apellido}
+              <strong>Cliente:</strong> {modalDetails.cliente.nombre}{" "}
+              {modalDetails.cliente.apellido}
             </p>
             <p>
               <strong>Teléfono:</strong> {modalDetails.cliente.telefono}
             </p>
             <p>
-              <strong>Fecha Ingreso:</strong> {formatFecha(modalDetails.fecha_in)}
+              <strong>Fecha Ingreso:</strong>{" "}
+              {modalDetails.fecha_in}
             </p>
             <p>
-              <strong>Fecha Estimada:</strong> {formatFecha(modalDetails.fecha_es)}
+              <strong>Fecha Estimada:</strong>{" "}
+              {modalDetails.fecha_es}
             </p>
             <p>
               <strong>Costo:</strong> ${modalDetails.costo}
@@ -413,9 +306,7 @@ const Servicios = () => {
           </div>
         </div>
       )}
-   
     </div>
-
   );
 };
 
