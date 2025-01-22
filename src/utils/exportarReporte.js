@@ -16,6 +16,8 @@ import "jspdf-autotable";
       ["Detalle", servicio.detalle],
       ["Costo", `$${servicio.costo}`],
       ["Estado", servicio.estado],
+      ["Fecha ingreso", servicio.fecha_in],
+      ["Fecha estimada", servicio.fecha_es],
     ],
   });
 
@@ -28,6 +30,8 @@ import "jspdf-autotable";
   - Detalle: ${servicio.detalle}
   - Costo: $${servicio.costo}
   - Estado: ${servicio.estado}
+  - Fecha Ingreso: ${servicio.fecha_in}
+  - Fecha Estimada: ${servicio.fecha_es}
   `;
   const url = `https://wa.me/${servicio.cliente.telefono}?text=${encodeURIComponent(mensaje)}`;
   window.open(url, "_blank");
